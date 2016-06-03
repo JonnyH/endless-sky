@@ -84,6 +84,7 @@ void OutlineShader::Init()
 	positionI = shader.Uniform("position");
 	colorI = shader.Uniform("color");
 	
+	gl->UseProgram(shader.Object());
 	gl->Uniform1i(shader.Uniform("tex"), 0);
 	
 	// Generate the vertex data for drawing sprites.
