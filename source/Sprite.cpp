@@ -43,20 +43,20 @@ void Sprite::AddFrame(int frame, ImageBuffer *image, Mask *mask, bool is2x)
 	if(textureIndex.size() <= static_cast<unsigned>(frame))
 		textureIndex.resize(frame + 1, 0);
 	if(!textureIndex[frame])
-		glGenTextures(1, &textureIndex[frame]);
-	glBindTexture(GL_TEXTURE_2D, textureIndex[frame]);
+		gl->GenTextures(1, &textureIndex[frame]);
+	gl->BindTexture(GL::TEXTURE_2D, textureIndex[frame]);
 	
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	gl->TexParameteri(GL::TEXTURE_2D, GL::TEXTURE_MIN_FILTER, GL::LINEAR);
+	gl->TexParameteri(GL::TEXTURE_2D, GL::TEXTURE_MAG_FILTER, GL::LINEAR);
+	gl->TexParameteri(GL::TEXTURE_2D, GL::TEXTURE_WRAP_S, GL::CLAMP_TO_EDGE);
+	gl->TexParameteri(GL::TEXTURE_2D, GL::TEXTURE_WRAP_T, GL::CLAMP_TO_EDGE);
 	
 	// ImageBuffer always loads images into 32-bit BGRA buffers.
 	// That is supposedly the fastest format to upload.
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, image->Width(), image->Height(), 0,
-		GL_BGRA, GL_UNSIGNED_BYTE, image->Pixels());
+	gl->TexImage2D(GL::TEXTURE_2D, 0, GL::RGBA, image->Width(), image->Height(), 0,
+		(GL::GLenum)GL::EXT_texture_format_BGRA8888::BGRA, GL::UNSIGNED_BYTE, image->Pixels());
 	
-	glBindTexture(GL_TEXTURE_2D, 0);
+	gl->BindTexture(GL::TEXTURE_2D, 0);
 	delete image;
 	
 	if(mask)
@@ -75,12 +75,12 @@ void Sprite::Unload()
 {
 	if(!textures.empty())
 	{
-		glDeleteTextures(textures.size(), &textures.front());
+		gl->DeleteTextures(textures.size(), &textures.front());
 		textures.clear();
 	}
 	if(!textures2x.empty())
 	{
-		glDeleteTextures(textures2x.size(), &textures2x.front());
+		gl->DeleteTextures(textures2x.size(), &textures2x.front());
 		textures2x.clear();
 	}
 	

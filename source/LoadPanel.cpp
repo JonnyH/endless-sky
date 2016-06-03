@@ -54,7 +54,7 @@ LoadPanel::LoadPanel(PlayerInfo &player, UI &gamePanels)
 
 void LoadPanel::Draw() const
 {
-	glClear(GL_COLOR_BUFFER_BIT);
+	gl->Clear(GL::COLOR_BUFFER_BIT);
 	GameData::Background().Draw(Point(), Point());
 	
 	Information info;

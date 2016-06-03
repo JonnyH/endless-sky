@@ -186,7 +186,7 @@ void MainPanel::Step()
 void MainPanel::Draw() const
 {
 	FrameTimer loadTimer;
-	glClear(GL_COLOR_BUFFER_BIT);
+	gl->Clear(GL::COLOR_BUFFER_BIT);
 	
 	engine.Draw();
 	

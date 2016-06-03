@@ -64,7 +64,7 @@ PreferencesPanel::PreferencesPanel()
 // Draw this panel.
 void PreferencesPanel::Draw() const
 {
-	glClear(GL_COLOR_BUFFER_BIT);
+	gl->Clear(GL::COLOR_BUFFER_BIT);
 	GameData::Background().Draw(Point(), Point());
 	
 	const Interface *menu = GameData::Interfaces().Get("preferences");

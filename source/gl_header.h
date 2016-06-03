@@ -10,10 +10,14 @@ WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
 PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 */
 
-// Include whichever header is used for OpenGL on this operating system.
-#ifdef __APPLE__
-#include <OpenGL/GL3.h>
-#else
-#include <GL/glew.h>
-#endif
+#ifndef GL_HEADER_H_
+#define GL_HEADER_H_
 
+#define GLESWRAP_GLES2
+#include "gleswrap/gleswrap.h"
+
+using GL = gles_wrap::gles2;
+
+extern gles_wrap::gles2 *gl;
+
+#endif // GL_HEADER_H_

@@ -55,7 +55,7 @@ ShopPanel::ShopPanel(PlayerInfo &player, const vector<string> &categories)
 
 void ShopPanel::Draw() const
 {
-	glClear(GL_COLOR_BUFFER_BIT);
+	gl->Clear(GL::COLOR_BUFFER_BIT);
 	
 	// Clear the list of clickable zones.
 	zones.clear();

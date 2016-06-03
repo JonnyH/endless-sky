@@ -41,7 +41,8 @@ env.Append(LIBS = [
 	"GL",
 	"GLEW",
 	"openal",
-	"pthread"
+	"pthread",
+	"dl"
 ]);
 
 # Work with clang's static analyzer:
