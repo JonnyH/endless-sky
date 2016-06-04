@@ -27,22 +27,49 @@ namespace {
 	GL::GLint blurI;
 	GL::GLint clipI;
 	GL::GLint fadeI;
+	GL::GLint texmatrixI;
 	
 	GL::GLuint vao;
 	GL::GLuint vbo;
 
-// FIXME: Replace TEXTURE_SWIZZLE with matrix mult?
-//	static const GL:GLint SWIZZLE[9][4] = {
-//		{GL::RED, GL::GREEN, GL::BLUE, GL::ALPHA}, // red + yellow markings (republic)
-//		{GL::RED, GL::BLUE, GL::GREEN, GL::ALPHA}, // red + magenta markings
-//		{GL::GREEN, GL::RED, GL::BLUE, GL::ALPHA}, // green + yellow (freeholders)
-//		{GL::BLUE, GL::RED, GL::GREEN, GL::ALPHA}, // green + cyan
-//		{GL::GREEN, GL::BLUE, GL::RED, GL::ALPHA}, // blue + magenta (syndicate)
-//		{GL::BLUE, GL::GREEN, GL::RED, GL::ALPHA}, // blue + cyan (merchant)
-//		{GL::GREEN, GL::BLUE, GL::BLUE, GL::ALPHA}, // red and black (pirate)
-//		{GL::BLUE, GL::ZERO, GL::ZERO, GL::ALPHA},  // red only (cloaked)
-//		{GL::ZERO, GL::ZERO, GL::ZERO, GL::ALPHA}  // black only (outline)
-//	};
+	static const GL::GLfloat SWIZZLE[9][4][4] = {
+		{{1.0f, 0.0f, 0.0f, 0.0f},// red + yellow markings (republic)
+		 {0.0f, 1.0f, 0.0f, 0.0f}, // R G B A
+		 {0.0f, 0.0f, 1.0f, 0.0f},
+		 {0.0f, 0.0f, 0.0f, 1.0f}},
+		{{1.0f, 0.0f, 0.0f, 0.0f}, // red + magenta markings
+		 {0.0f, 0.0f, 1.0f, 0.0f}, // R B G A
+		 {0.0f, 1.0f, 0.0f, 0.0f},
+		 {0.0f, 0.0f, 0.0f, 1.0f}},
+		{{0.0f, 1.0f, 0.0f, 0.0f}, // green + yellow (freeholders)
+		 {1.0f, 0.0f, 0.0f, 0.0f}, // G R B A
+		 {0.0f, 0.0f, 1.0f, 0.0f},
+		 {0.0f, 0.0f, 0.0f, 1.0f}},
+		{{0.0f, 0.0f, 1.0f, 0.0f}, // green + cyan
+		 {1.0f, 0.0f, 0.0f, 0.0f}, // B R G A
+		 {0.0f, 1.0f, 0.0f, 0.0f},
+		 {0.0f, 0.0f, 0.0f, 1.0f}},
+		{{0.0f, 1.0f, 0.0f, 0.0f}, // blue + magenta (syndicate)
+		 {0.0f, 0.0f, 1.0f, 0.0f}, // G B R A
+		 {1.0f, 0.0f, 0.0f, 0.0f},
+		 {0.0f, 0.0f, 0.0f, 1.0f}},
+		{{0.0f, 0.0f, 1.0f, 0.0f}, // blue + cyan (merchant)
+		 {0.0f, 1.0f, 0.0f, 0.0f}, // B G R A
+		 {1.0f, 0.0f, 0.0f, 0.0f},
+		 {0.0f, 0.0f, 0.0f, 1.0f}},
+		{{0.0f, 1.0f, 0.0f, 0.0f}, // red and black (pirate)
+		 {0.0f, 0.0f, 1.0f, 0.0f}, // G B B A
+		 {0.0f, 0.0f, 0.0f, 0.0f},
+		 {0.0f, 0.0f, 0.0f, 1.0f}},
+		{{0.0f, 0.0f, 1.0f, 0.0f}, // red only (cloaked)
+		 {0.0f, 0.0f, 0.0f, 0.0f}, // B 0 0 A
+		 {0.0f, 0.0f, 0.0f, 0.0f},
+		 {0.0f, 0.0f, 0.0f, 1.0f}},
+		{{0.0f, 0.0f, 0.0f, 0.0f}, // black only (outline)
+		 {0.0f, 0.0f, 0.0f, 0.0f}, // 0 0 0 A
+		 {0.0f, 0.0f, 0.0f, 0.0f},
+		 {0.0f, 0.0f, 0.0f, 1.0f}},
+	};
 }
 
 
@@ -72,6 +99,7 @@ void SpriteShader::Init()
 		"uniform sampler2D tex1;\n"
 		"uniform float fade;\n"
 		"uniform vec2 blur;\n"
+		"uniform mat4 tex_matrix;\n"
 		"const int range = 5;\n"
 		
 		"varying vec2 fragTexCoord;\n"
@@ -80,9 +108,9 @@ void SpriteShader::Init()
 		"  if(blur.x == 0.0 && blur.y == 0.0)\n"
 		"  {\n"
 		"    if(fade != 0.0)\n"
-		"     gl_FragColor = mix(texture2D(tex0, fragTexCoord), texture2D(tex1, fragTexCoord), fade);\n"
+		"     gl_FragColor = tex_matrix * mix(texture2D(tex0, fragTexCoord), texture2D(tex1, fragTexCoord), fade);\n"
 		"    else\n"
-		"      gl_FragColor = texture2D(tex0, fragTexCoord);\n"
+		"      gl_FragColor = tex_matrix * texture2D(tex0, fragTexCoord);\n"
 		"    return;\n"
 		"  }\n"
 		"  const float divisor = float(range) * (float(range) + 2.0) + 1.0;\n"
@@ -96,7 +124,7 @@ void SpriteShader::Init()
 		"    else\n"
 		"      color += scale * texture2D(tex0, coord);\n"
 		"  }\n"
-		"  gl_FragColor = color;\n"
+		"  gl_FragColor = tex_matrix * color;\n"
 		"}\n";
 	
 	shader = Shader(vertexCode, fragmentCode);
@@ -106,6 +134,7 @@ void SpriteShader::Init()
 	blurI = shader.Uniform("blur");
 	clipI = shader.Uniform("clip");
 	fadeI = shader.Uniform("fade");
+	texmatrixI = shader.Uniform("tex_matrix");
 	
 	gl->UseProgram(shader.Object());
 	gl->Uniform1i(shader.Uniform("tex0"), 0);
@@ -176,16 +205,13 @@ void SpriteShader::Add(uint32_t tex0, uint32_t tex1, const float position[2], co
 	{
 		gl->ActiveTexture(GL::TEXTURE1);
 		gl->BindTexture(GL::TEXTURE_2D, tex1);
-		// FIXME: Replace TEXTURE_SWIZZLE with matrix mult?
-		//glTexParameteriv(GL::TEXTURE_2D, GL::TEXTURE_SWIZZLE_RGBA, SWIZZLE[swizzle]);
 		gl->ActiveTexture(GL::TEXTURE0);
 	}
 	else
 		fade = 0.f;
 	
 	// Set the color swizzle.
-	// FIXME: Replace TEXTURE_SWIZZLE with matrix mult?
-	//glTexParameteriv(GL::TEXTURE_2D, GL::TEXTURE_SWIZZLE_RGBA, SWIZZLE[swizzle]);
+	gl->UniformMatrix4fv(texmatrixI, 1, GL::FALSE, &SWIZZLE[swizzle][0][0]);
 	
 	// Set the clipping.
 	gl->Uniform1f(clipI, 1.f - clip);
