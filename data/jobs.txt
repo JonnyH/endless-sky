@@ -2566,7 +2566,7 @@ mission "Bounty Hunting (Small)"
 		attributes "rim" "south" "north" "dirt belt" "core" "frontier"
 	npc kill
 		government "Bounty"
-		personality heroic staying nemesis target
+		personality heroic staying target nemesis opportunistic
 		system
 			distance 1 2
 		fleet
@@ -2609,7 +2609,7 @@ mission "Bounty Hunting (Medium)"
 		attributes "rim" "south" "north" "dirt belt" "core" "frontier"
 	npc kill
 		government "Bounty"
-		personality heroic staying nemesis target
+		personality heroic staying target nemesis opportunistic
 		system
 			distance 1 2
 		fleet
@@ -2646,7 +2646,7 @@ mission "Bounty Hunting (Big)"
 		attributes "rim" "south" "north" "dirt belt" "core" "frontier"
 	npc kill
 		government "Bounty"
-		personality heroic staying nemesis target
+		personality heroic staying target nemesis opportunistic
 		system
 			distance 1 2
 		fleet
@@ -2771,7 +2771,7 @@ mission "Bounty Hunting (Marauder I)"
 		attributes "rim" "south" "north" "dirt belt" "core" "frontier"
 	npc kill
 		government "Bounty"
-		personality heroic staying nemesis target
+		personality heroic staying target nemesis opportunistic
 		system
 			distance 1 3
 		fleet "Marauder fleet I"
@@ -2799,7 +2799,7 @@ mission "Bounty Hunting (Marauder II)"
 		attributes "rim" "south" "north" "dirt belt" "core" "frontier"
 	npc kill
 		government "Bounty"
-		personality heroic staying nemesis target
+		personality heroic staying target nemesis opportunistic
 		system
 			distance 1 3
 		fleet "Marauder fleet II"
@@ -2827,7 +2827,7 @@ mission "Bounty Hunting (Marauder III)"
 		attributes "rim" "south" "north" "dirt belt" "core" "frontier"
 	npc kill
 		government "Bounty"
-		personality heroic staying nemesis target
+		personality heroic staying target nemesis opportunistic
 		system
 			distance 1 3
 		fleet "Marauder fleet III"
@@ -2855,7 +2855,7 @@ mission "Bounty Hunting (Marauder IV)"
 		attributes "rim" "south" "north" "dirt belt" "core" "frontier"
 	npc kill
 		government "Bounty"
-		personality heroic staying nemesis target
+		personality heroic staying target nemesis opportunistic
 		system
 			distance 1 3
 		fleet "Marauder fleet IV"
@@ -2883,7 +2883,7 @@ mission "Bounty Hunting (Marauder V)"
 		attributes "rim" "south" "north" "dirt belt" "core" "frontier"
 	npc kill
 		government "Bounty"
-		personality heroic staying nemesis target
+		personality heroic staying target nemesis opportunistic
 		system
 			distance 1 3
 		fleet "Marauder fleet V"
@@ -2912,7 +2912,7 @@ mission "Bounty Hunting (Marauder VI)"
 		attributes "rim" "south" "north" "dirt belt" "core" "frontier"
 	npc kill
 		government "Bounty"
-		personality heroic staying nemesis target
+		personality heroic staying target nemesis opportunistic
 		system
 			distance 1 3
 		fleet "Marauder fleet VI"
@@ -2936,7 +2936,7 @@ mission "Bounty Hunting (Marauder VII)"
 		attributes "rim" "south" "north" "dirt belt" "core" "frontier"
 	npc kill
 		government "Bounty"
-		personality heroic staying nemesis target
+		personality heroic staying target nemesis opportunistic
 		system
 			distance 1 3
 		fleet "Marauder fleet VII"
@@ -2960,7 +2960,7 @@ mission "Bounty Hunting (Marauder VIII)"
 		attributes "rim" "south" "north" "dirt belt" "core" "frontier"
 	npc kill
 		government "Bounty"
-		personality heroic staying nemesis target
+		personality heroic staying target nemesis opportunistic
 		system
 			distance 1 3
 		fleet "Marauder fleet VIII"
@@ -2984,7 +2984,7 @@ mission "Bounty Hunting (Marauder IX)"
 		attributes "rim" "south" "north" "dirt belt" "core" "frontier"
 	npc kill
 		government "Bounty"
-		personality heroic unconstrained staying nemesis target
+		personality heroic unconstrained staying target nemesis opportunistic
 		system
 			distance 1 3
 		fleet "Marauder fleet IX"
@@ -3009,8 +3009,9 @@ mission "Marauder Hunted"
 	to complete
 		never
 	npc save
-		government "Bounty Hunter"
-		personality heroic unconstrained waiting nemesis plunders harvests
+		government "Marauder Bounty Hunter"
+		personality heroic unconstrained waiting plunders harvests nemesis opportunistic
 		system
 			distance 5 5
 		fleet "Marauder fleet X"
+
