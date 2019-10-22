@@ -363,6 +363,7 @@ government "Quarg"
 		"Marauder Bounty Hunter" -.01
 		"Bounty" -.01
 	"hostile hail" "hostile quarg"
+	"hostile disabled hail" "hostile quarg"
 
 government "Remnant"
 	swizzle 0

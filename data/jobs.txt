@@ -3014,4 +3014,3 @@ mission "Marauder Hunted"
 		system
 			distance 5 5
 		fleet "Marauder fleet X"
-
