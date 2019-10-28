@@ -22,16 +22,17 @@ using namespace std;
 
 namespace {
 	Shader shader;
-	GLint scaleI;
-	GLint offI;
-	GLint transformI;
-	GLint positionI;
-	GLint frameI;
-	GLint frameCountI;
-	GLint colorI;
+	GL::GLint scaleI;
+	GL::GLint offI;
+	GL::GLint transformI;
+	GL::GLint positionI;
+	GL::GLint colorI;
+	GL::GLint frameI;
+	GL::GLint frameCountI;
+	GL::GLint colorI;
 	
-	GLuint vao;
-	GLuint vbo;
+	GL::GLuint vao;
+	GL::GLuint vbo;
 }
 
 
@@ -43,10 +44,9 @@ void OutlineShader::Init()
 		"uniform vec2 position;\n"
 		"uniform mat2 transform;\n"
 		
-		"in vec2 vert;\n"
-		"in vec2 vertTexCoord;\n"
-		
-		"out vec2 fragTexCoord;\n"
+		"attribute vec2 vert;\n"
+		"attribute vec2 vertTexCoord;\n"
+		"varying vec2 fragTexCoord;\n"
 		
 		"void main() {\n"
 		"  fragTexCoord = vertTexCoord;\n"
@@ -71,31 +71,31 @@ void OutlineShader::Init()
 		"uniform vec2 off;\n"
 		"const vec4 weight = vec4(.4, .4, .4, 1.);\n"
 		
-		"in vec2 fragTexCoord;\n"
+		"attribute vec2 fragTexCoord;\n"
 		
-		"out vec4 finalColor;\n"
+		"varying vec4 finalColor;\n"
 		
-		"float Sobel(float layer) {\n"
-		"  float sum = 0;\n"
+		
+		"  float sum = 0.0;\n"
 		"  for(int dy = -1; dy <= 1; ++dy)\n"
 		"  {\n"
 		"    for(int dx = -1; dx <= 1; ++dx)\n"
 		"    {\n"
-		"      vec2 center = fragTexCoord + .618034 * off * vec2(dx, dy);\n"
-		"      float nw = dot(texture(tex, vec3(center + vec2(-off.x, -off.y), layer)), weight);\n"
-		"      float ne = dot(texture(tex, vec3(center + vec2(off.x, -off.y), layer)), weight);\n"
-		"      float sw = dot(texture(tex, vec3(center + vec2(-off.x, off.y), layer)), weight);\n"
-		"      float se = dot(texture(tex, vec3(center + vec2(off.x, off.y), layer)), weight);\n"
-		"      float h = nw + sw - ne - se + 2 * (\n"
-		"        dot(texture(tex, vec3(center + vec2(-off.x, 0), layer)), weight)\n"
-		"          - dot(texture(tex, vec3(center + vec2(off.x, 0), layer)), weight));\n"
-		"      float v = nw + ne - sw - se + 2 * (\n"
-		"        dot(texture(tex, vec3(center + vec2(0, -off.y), layer)), weight)\n"
-		"          - dot(texture(tex, vec3(center + vec2(0, off.y), layer)), weight));\n"
+		"      vec2 d = vec2(.618 * float(dx) * off.x, .618 * float(dy) * off.y);\n"
+		"      float ae = texture2D(tex, d + vec2(tc.x - off.x, tc.y)).a;\n"
+		"      float aw = texture2D(tex, d + vec2(tc.x + off.x, tc.y)).a;\n"
+		"      float an = texture2D(tex, d + vec2(tc.x, tc.y - off.y)).a;\n"
+		"      float as = texture2D(tex, d + vec2(tc.x, tc.y + off.y)).a;\n"
+		"      float ane = texture2D(tex, d + vec2(tc.x - off.x, tc.y - off.y)).a;\n"
+		"      float anw = texture2D(tex, d + vec2(tc.x + off.x, tc.y - off.y)).a;\n"
+		"      float ase = texture2D(tex, d + vec2(tc.x - off.x, tc.y + off.y)).a;\n"
+		"      float asw = texture2D(tex, d + vec2(tc.x + off.x, tc.y + off.y)).a;\n"
+		"      float h = (ae * 2.0 + ane + ase) - (aw * 2.0 + anw + asw);\n"
+		"      float v = (an * 2.0 + ane + anw) - (as * 2.0 + ase + asw);\n"
 		"      sum += h * h + v * v;\n"
 		"    }\n"
 		"  }\n"
-		"  return sum;\n"
+		"  gl_FragColor = color * sqrt(sum / 144.0);\n"
 		"}\n"
 		
 		"void main() {\n"
@@ -115,75 +115,77 @@ void OutlineShader::Init()
 	frameCountI = shader.Uniform("frameCount");
 	colorI = shader.Uniform("color");
 	
-	glUseProgram(shader.Object());
-	glUniform1i(shader.Uniform("tex"), 0);
-	glUseProgram(0);
+	gl->UseProgram(shader.Object());
+	gl->Uniform1i(shader.Uniform("tex"), 0);
+	gl->UseProgram(0);
 	
 	// Generate the vertex data for drawing sprites.
-	glGenVertexArrays(1, &vao);
-	glBindVertexArray(vao);
+	gl->OES_vertex_array_object.GenVertexArrays(1, &vao);
+	gl->OES_vertex_array_object.BindVertexArray(vao);
 	
-	glGenBuffers(1, &vbo);
-	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	gl->GenBuffers(1, &vbo);
+	gl->BindBuffer(GL::ARRAY_BUFFER, vbo);
 	
-	GLfloat vertexData[] = {
+	GL::GLfloat vertexData[] = {
 		-.5f, -.5f, 0.f, 0.f,
 		 .5f, -.5f, 1.f, 0.f,
 		-.5f,  .5f, 0.f, 1.f,
 		 .5f,  .5f, 1.f, 1.f
 	};
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vertexData), vertexData, GL_STATIC_DRAW);
+	gl->BufferData(GL::ARRAY_BUFFER, sizeof(vertexData), vertexData, GL::STATIC_DRAW);
 	
-	glEnableVertexAttribArray(shader.Attrib("vert"));
-	glVertexAttribPointer(shader.Attrib("vert"), 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), nullptr);
+	gl->EnableVertexAttribArray(shader.Attrib("vert"));
+	gl->VertexAttribPointer(shader.Attrib("vert"), 2, GL::FLOAT, GL::FALSE,
+		4 * sizeof(GL::GLfloat), NULL);
 	
-	glEnableVertexAttribArray(shader.Attrib("vertTexCoord"));
-	glVertexAttribPointer(shader.Attrib("vertTexCoord"), 2, GL_FLOAT, GL_TRUE,
-		4 * sizeof(GLfloat), (const GLvoid*)(2 * sizeof(GLfloat)));
+	gl->EnableVertexAttribArray(shader.Attrib("vertTexCoord"));
+	gl->VertexAttribPointer(shader.Attrib("vertTexCoord"), 2, GL::FLOAT, GL::TRUE,
+		4 * sizeof(GL::GLfloat), (const GL::GLvoid*)(2 * sizeof(GL::GLfloat)));
 	
 	// unbind the VBO and VAO
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindVertexArray(0);
+	gl->BindBuffer(GL::ARRAY_BUFFER, 0);
+	gl->OES_vertex_array_object.BindVertexArray(0);
 }
 
 
 
 void OutlineShader::Draw(const Sprite *sprite, const Point &pos, const Point &size, const Color &color, const Point &unit, float frame)
 {
-	glUseProgram(shader.Object());
-	glBindVertexArray(vao);
+	gl->UseProgram(shader.Object());
+	gl->OES_vertex_array_object.BindVertexArray(vao);
+	gl->ActiveTexture(GL::TEXTURE0);
 	
-	GLfloat scale[2] = {2.f / Screen::Width(), -2.f / Screen::Height()};
-	glUniform2fv(scaleI, 1, scale);
+	GL::GLfloat scale[2] = {2.f / Screen::Width(), -2.f / Screen::Height()};
+	gl->Uniform2fv(scaleI, 1, scale);
 	
-	GLfloat off[2] = {
+	GL::GLfloat off[2] = {
 		static_cast<float>(.5 / size.X()),
 		static_cast<float>(.5 / size.Y())};
-	glUniform2fv(offI, 1, off);
+	gl->Uniform2fv(offI, 1, off);
 	
-	glUniform1f(frameI, frame);
-	glUniform1f(frameCountI, sprite->Frames());
+	gl->Uniform1f(frameI, frame);
+	gl->Uniform1f(frameCountI, sprite->Frames());
 	
 	Point uw = unit * size.X();
 	Point uh = unit * size.Y();
-	GLfloat transform[4] = {
+	GL::GLfloat transform[4] = {
 		static_cast<float>(-uw.Y()),
 		static_cast<float>(uw.X()),
 		static_cast<float>(-uh.X()),
 		static_cast<float>(-uh.Y())
 	};
-	glUniformMatrix2fv(transformI, 1, false, transform);
+	gl->UniformMatrix2fv(transformI, 1, false, transform);
 	
-	GLfloat position[2] = {
+	GL::GLfloat position[2] = {
 		static_cast<float>(pos.X()), static_cast<float>(pos.Y())};
-	glUniform2fv(positionI, 1, position);
+	gl->Uniform2fv(positionI, 1, position);
 	
-	glUniform4fv(colorI, 1, color.Get());
+	gl->Uniform4fv(colorI, 1, color.Get());
 	
-	glBindTexture(GL_TEXTURE_2D_ARRAY, sprite->Texture(unit.Length() * Screen::Zoom() > 50.));
+	gl->BindTexture(GL_TEXTURE_2D, sprite->Texture(unit.Length() * Screen::Zoom() > 50.));
 	
-	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+	gl->DrawArrays(GL::TRIANGLE_STRIP, 0, 4);
 	
-	glBindVertexArray(0);
-	glUseProgram(0);
+	gl->OES_vertex_array_object.BindVertexArray(0);
+	gl->UseProgram(0);
 }

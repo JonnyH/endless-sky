@@ -92,7 +92,8 @@ void ShopPanel::Draw()
 {
 	const double oldSelectedTopY = selectedTopY;
 	
-	glClear(GL_COLOR_BUFFER_BIT);
+	gl->Clear(GL::COLOR_BUFFER_BIT);
+	
 	
 	// Clear the list of clickable zones.
 	zones.clear();

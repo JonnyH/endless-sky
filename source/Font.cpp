@@ -35,35 +35,32 @@ namespace {
 		// The glyph to draw. (ASCII value - 32).
 		"uniform int glyph;\n"
 		// Aspect ratio of rendered glyph (unity by default).
-		"uniform float aspect = 1.f;\n"
+		"uniform float aspect;\n"
 		
 		// Inputs from the VBO.
-		"in vec2 vert;\n"
-		"in vec2 corner;\n"
+		"attribute vec2 vert;\n"
+		"attribute vec2 corner;\n"
 		
 		// Output to the fragment shader.
-		"out vec2 texCoord;\n"
+		"varying vec2 texCoord;\n"
 		
 		// Pick the proper glyph out of the texture.
 		"void main() {\n"
-		"  texCoord = vec2((glyph + corner.x) / 98.f, corner.y);\n"
+		"  texCoord = vec2((float(glyph) + corner.x) / 98.f, corner.y);\n"
 		"  gl_Position = vec4((aspect * vert.x + position.x) * scale.x, (vert.y + position.y) * scale.y, 0, 1);\n"
 		"}\n";
 	
 	const char *fragmentCode =
 		// The user must supply a texture and a color (white by default).
 		"uniform sampler2D tex;\n"
-		"uniform vec4 color = vec4(1, 1, 1, 1);\n"
+		"uniform vec4 color;\n"
 		
 		// This comes from the vertex shader.
-		"in vec2 texCoord;\n"
-		
-		// Output color.
-		"out vec4 finalColor;\n"
+		"varying vec2 texCoord;\n"
 		
 		// Multiply the texture by the user-specified color (including alpha).
 		"void main() {\n"
-		"  finalColor = texture(tex, texCoord).a * color;\n"
+		"  gl_FragColor = texture2D(tex, texCoord).a * color;\n"
 		"}\n";
 	
 	const int KERN = 2;
@@ -110,22 +107,23 @@ void Font::Draw(const string &str, const Point &point, const Color &color) const
 
 void Font::DrawAliased(const string &str, double x, double y, const Color &color) const
 {
-	glUseProgram(shader.Object());
-	glBindTexture(GL_TEXTURE_2D, texture);
-	glBindVertexArray(vao);
+	gl->UseProgram(shader.Object());
+	gl->ActiveTexture(GL::TEXTURE0);
+	gl->BindTexture(GL::TEXTURE_2D, texture);
+	gl->OES_vertex_array_object.BindVertexArray(vao);
 	
-	glUniform4fv(colorI, 1, color.Get());
+	gl->Uniform4fv(colorI, 1, color.Get());
 	
 	// Update the scale, only if the screen size has changed.
 	if(Screen::Width() != screenWidth || Screen::Height() != screenHeight)
 	{
 		screenWidth = Screen::Width();
 		screenHeight = Screen::Height();
-		GLfloat scale[2] = {2.f / screenWidth, -2.f / screenHeight};
-		glUniform2fv(scaleI, 1, scale);
+		GL::GLfloat scale[2] = {2.f / screenWidth, -2.f / screenHeight};
+		gl->Uniform2fv(scaleI, 1, scale);
 	}
 	
-	GLfloat textPos[2] = {
+	GL::GLfloat textPos[2] = {
 		static_cast<float>(x - 1.),
 		static_cast<float>(y)};
 	int previous = 0;
@@ -150,23 +148,23 @@ void Font::DrawAliased(const string &str, double x, double y, const Color &color
 			continue;
 		}
 		
-		glUniform1i(glyphI, glyph);
-		glUniform1f(aspectI, 1.f);
+		gl->Uniform1i(glyphI, glyph);
+		gl->Uniform1f(aspectI, 1.f);
 		
 		textPos[0] += advance[previous * GLYPHS + glyph] + KERN;
-		glUniform2fv(positionI, 1, textPos);
+		gl->Uniform2fv(positionI, 1, textPos);
 		
-		glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+		gl->DrawArrays(GL::TRIANGLE_STRIP, 0, 4);
 		
 		if(underlineChar)
 		{
-			glUniform1i(glyphI, underscoreGlyph);
-			glUniform1f(aspectI, static_cast<float>(advance[glyph * GLYPHS] + KERN)
+			gl->Uniform1i(glyphI, underscoreGlyph);
+			gl->Uniform1f(aspectI, static_cast<float>(advance[glyph * GLYPHS] + KERN)
 				/ (advance[underscoreGlyph * GLYPHS] + KERN));
 			
-			glUniform2fv(positionI, 1, textPos);
+			gl->Uniform2fv(positionI, 1, textPos);
 			
-			glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+			gl->DrawArrays(GL::TRIANGLE_STRIP, 0, 4);
 			underlineChar = false;
 		}
 		
@@ -359,16 +357,16 @@ int Font::Glyph(char c, bool isAfterSpace)
 
 void Font::LoadTexture(ImageBuffer &image)
 {
-	glGenTextures(1, &texture);
-	glBindTexture(GL_TEXTURE_2D, texture);
+	gl->GenTextures(1, &texture);
+	gl->BindTexture(GL::TEXTURE_2D, texture);
 	
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	gl->TexParameteri(GL::TEXTURE_2D, GL::TEXTURE_MIN_FILTER, GL::LINEAR);
+	gl->TexParameteri(GL::TEXTURE_2D, GL::TEXTURE_MAG_FILTER, GL::LINEAR);
+	gl->TexParameteri(GL::TEXTURE_2D, GL::TEXTURE_WRAP_S, GL::CLAMP_TO_EDGE);
+	gl->TexParameteri(GL::TEXTURE_2D, GL::TEXTURE_WRAP_T, GL::CLAMP_TO_EDGE);
 	
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, image.Width(), image.Height(), 0,
-		GL_BGRA, GL_UNSIGNED_BYTE, image.Pixels());
+	gl->TexImage2D(GL::TEXTURE_2D, 0, GL::RGBA, image->Width(), image->Height(), 0,
+		(GL::GLenum)GL::EXT_texture_format_BGRA8888::BGRA, GL::UNSIGNED_BYTE, image->Pixels());
 }
 
 
@@ -441,32 +439,33 @@ void Font::SetUpShader(float glyphW, float glyphH)
 	glyphH *= .5f;
 	
 	shader = Shader(vertexCode, fragmentCode);
-	glUseProgram(shader.Object());
+	gl->UseProgram(shader.Object());
 	glUniform1i(shader.Uniform("tex"), 0);
 	glUseProgram(0);
 	
 	// Create the VAO and VBO.
-	glGenVertexArrays(1, &vao);
-	glBindVertexArray(vao);
+	gl->OES_vertex_array_object.GenVertexArrays(1, &vao);
+	gl->OES_vertex_array_object.BindVertexArray(vao);
 	
-	glGenBuffers(1, &vbo);
-	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	gl->GenBuffers(1, &vbo);
+	gl->BindBuffer(GL::ARRAY_BUFFER, vbo);
 	
-	GLfloat vertices[] = {
+	GL::GLfloat vertices[] = {
 		   0.f,    0.f, 0.f, 0.f,
 		   0.f, glyphH, 0.f, 1.f,
 		glyphW,    0.f, 1.f, 0.f,
 		glyphW, glyphH, 1.f, 1.f
 	};
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+	gl->BufferData(GL::ARRAY_BUFFER, sizeof(vertices), vertices, GL::STATIC_DRAW);
 	
 	// connect the xy to the "vert" attribute of the vertex shader
-	glEnableVertexAttribArray(shader.Attrib("vert"));
-	glVertexAttribPointer(shader.Attrib("vert"), 2, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), nullptr);
+	gl->EnableVertexAttribArray(shader.Attrib("vert"));
+	gl->VertexAttribPointer(shader.Attrib("vert"), 2, GL::FLOAT, GL::FALSE,
+		4 * sizeof(GL::GLfloat), NULL);
 	
-	glEnableVertexAttribArray(shader.Attrib("corner"));
-	glVertexAttribPointer(shader.Attrib("corner"), 2, GL_FLOAT, GL_FALSE,
-		4 * sizeof(GLfloat), (const GLvoid*)(2 * sizeof(GLfloat)));
+	gl->EnableVertexAttribArray(shader.Attrib("corner"));
+	gl->VertexAttribPointer(shader.Attrib("corner"), 2, GL::FLOAT, GL::FALSE,
+		4 * sizeof(GL::GLfloat), (const GL::GLvoid*)(2 * sizeof(GL::GLfloat)));
 	
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	glBindVertexArray(0);
@@ -475,6 +474,7 @@ void Font::SetUpShader(float glyphW, float glyphH)
 	screenWidth = 0;
 	screenHeight = 0;
 	
+	gl->Uniform1i(shader.Uniform("tex"), 0);
 	colorI = shader.Uniform("color");
 	scaleI = shader.Uniform("scale");
 	glyphI = shader.Uniform("glyph");

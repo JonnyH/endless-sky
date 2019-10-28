@@ -61,15 +61,15 @@ private:
 	
 private:
 	Shader shader;
-	GLuint texture;
-	GLuint vao;
-	GLuint vbo;
+	GL::GLuint texture;
+	GL::GLuint vao;
+	GL::GLuint vbo;
 	
-	GLint colorI;
-	GLint scaleI;
-	GLint glyphI;
-	GLint aspectI;
-	GLint positionI;
+	GL::GLint colorI;
+	GL::GLint scaleI;
+	GL::GLint glyphI;
+	GL::GLint aspectI;
+	GL::GLint positionI;
 	
 	int height;
 	int space;

@@ -24,17 +24,17 @@ using namespace std;
 
 namespace {
 	Shader shader;
-	GLint scaleI;
-	GLint positionI;
-	GLint radiusI;
-	GLint widthI;
-	GLint angleI;
-	GLint startAngleI;
-	GLint dashI;
-	GLint colorI;
+	GL::GLint scaleI;
+	GL::GLint positionI;
+	GL::GLint radiusI;
+	GL::GLint widthI;
+	GL::GLint angleI;
+	GL::GLint startAngleI;
+	GL::GLint dashI;
+	GL::GLint colorI;
 	
-	GLuint vao;
-	GLuint vbo;
+	GL::GLuint vao;
+	GL::GLuint vbo;
 }
 
 
@@ -47,8 +47,8 @@ void RingShader::Init()
 		"uniform float radius;\n"
 		"uniform float width;\n"
 		
-		"in vec2 vert;\n"
-		"out vec2 coord;\n"
+		"attribute vec2 vert;\n"
+		"varying vec2 coord;\n"
 		
 		"void main() {\n"
 		"  coord = (radius + width) * vert;\n"
@@ -56,7 +56,7 @@ void RingShader::Init()
 		"}\n";
 
 	static const char *fragmentCode =
-		"uniform vec4 color = vec4(1, 1, 1, 1);\n"
+		"uniform vec4 color;\n"
 		"uniform float radius;\n"
 		"uniform float width;\n"
 		"uniform float angle;\n"
@@ -64,21 +64,20 @@ void RingShader::Init()
 		"uniform float dash;\n"
 		"const float pi = 3.1415926535897932384626433832795;\n"
 		
-		"in vec2 coord;\n"
-		"out vec4 finalColor;\n"
+		"varying vec2 coord;\n"
 		
 		"void main() {\n"
-		"  float arc = mod(atan(coord.x, coord.y) + pi + startAngle, 2 * pi);\n"
-		"  float arcFalloff = 1 - min(2 * pi - arc, arc - angle) * radius;\n"
-		"  if(dash != 0)\n"
+		"  float arc = mod(atan(coord.x, coord.y) + pi + startAngle, 2.0 * pi);\n"
+		"  float arcFalloff = 1.0 - min(2.0 * pi - arc, arc - angle) * radius;\n"
+		"  if(dash != 0.0)\n"
 		"  {\n"
 		"    arc = mod(arc, dash);\n"
 		"    arcFalloff = min(arcFalloff, min(arc, dash - arc) * radius);\n"
 		"  }\n"
 		"  float len = length(coord);\n"
 		"  float lenFalloff = width - abs(len - radius);\n"
-		"  float alpha = clamp(min(arcFalloff, lenFalloff), 0, 1);\n"
-		"  finalColor = color * alpha;\n"
+		"  float alpha = clamp(min(arcFalloff, lenFalloff), 0.0, 1.0);\n"
+		"  gl_FragColor = color * alpha;\n"
 		"}\n";
 	
 	shader = Shader(vertexCode, fragmentCode);
@@ -92,26 +91,27 @@ void RingShader::Init()
 	colorI = shader.Uniform("color");
 	
 	// Generate the vertex data for drawing sprites.
-	glGenVertexArrays(1, &vao);
-	glBindVertexArray(vao);
+	gl->OES_vertex_array_object.GenVertexArrays(1, &vao);
+	gl->OES_vertex_array_object.BindVertexArray(vao);
 	
-	glGenBuffers(1, &vbo);
-	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	gl->GenBuffers(1, &vbo);
+	gl->BindBuffer(GL::ARRAY_BUFFER, vbo);
 	
-	GLfloat vertexData[] = {
+	GL::GLfloat vertexData[] = {
 		-1.f, -1.f,
 		-1.f,  1.f,
 		 1.f, -1.f,
 		 1.f,  1.f
 	};
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vertexData), vertexData, GL_STATIC_DRAW);
+	gl->BufferData(GL::ARRAY_BUFFER, sizeof(vertexData), vertexData, GL::STATIC_DRAW);
 	
-	glEnableVertexAttribArray(shader.Attrib("vert"));
-	glVertexAttribPointer(shader.Attrib("vert"), 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), nullptr);
+	gl->EnableVertexAttribArray(shader.Attrib("vert"));
+	gl->VertexAttribPointer(shader.Attrib("vert"), 2, GL::FLOAT, GL::FALSE,
+		2 * sizeof(GL::GLfloat), NULL);
 	
 	// unbind the VBO and VAO
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindVertexArray(0);
+	gl->BindBuffer(GL::ARRAY_BUFFER, 0);
+	gl->OES_vertex_array_object.BindVertexArray(0);
 }
 
 
@@ -140,11 +140,11 @@ void RingShader::Bind()
 	if(!shader.Object())
 		throw runtime_error("RingShader: Bind() called before Init().");
 	
-	glUseProgram(shader.Object());
-	glBindVertexArray(vao);
+	gl->UseProgram(shader.Object());
+	gl->OES_vertex_array_object.BindVertexArray(vao);
 	
-	GLfloat scale[2] = {2.f / Screen::Width(), -2.f / Screen::Height()};
-	glUniform2fv(scaleI, 1, scale);
+	GL::GLfloat scale[2] = {2.f / Screen::Width(), -2.f / Screen::Height()};
+	gl->Uniform2fv(scaleI, 1, scale);
 }
 
 
@@ -159,24 +159,24 @@ void RingShader::Add(const Point &pos, float out, float in, const Color &color)
 
 void RingShader::Add(const Point &pos, float radius, float width, float fraction, const Color &color, float dash, float startAngle)
 {
-	GLfloat position[2] = {static_cast<float>(pos.X()), static_cast<float>(pos.Y())};
-	glUniform2fv(positionI, 1, position);
+	GL::GLfloat position[2] = {static_cast<float>(pos.X()), static_cast<float>(pos.Y())};
+	gl->Uniform2fv(positionI, 1, position);
 	
-	glUniform1f(radiusI, radius);
-	glUniform1f(widthI, width);
-	glUniform1f(angleI, fraction * 2. * PI);
-	glUniform1f(startAngleI, startAngle * TO_RAD);
-	glUniform1f(dashI, dash ? 2. * PI / dash : 0.);
+	gl->Uniform1f(radiusI, radius);
+	gl->Uniform1f(widthI, width);
+	gl->Uniform1f(angleI, fraction * 2. * PI);
+	gl->Uniform1f(startAngleI, startAngle * TO_RAD);
+	gl->Uniform1f(dashI, dash ? 2. * PI / dash : 0.);
 	
-	glUniform4fv(colorI, 1, color.Get());
+	gl->Uniform4fv(colorI, 1, color.Get());
 	
-	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+	gl->DrawArrays(GL::TRIANGLE_STRIP, 0, 4);
 }
 
 
 
 void RingShader::Unbind()
 {
-	glBindVertexArray(0);
-	glUseProgram(0);
+	gl->OES_vertex_array_object.BindVertexArray(0);
+	gl->UseProgram(0);
 }

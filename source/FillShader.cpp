@@ -23,13 +23,13 @@ using namespace std;
 
 namespace {
 	Shader shader;
-	GLint scaleI;
-	GLint centerI;
-	GLint sizeI;
-	GLint colorI;
+	GL::GLint scaleI;
+	GL::GLint centerI;
+	GL::GLint sizeI;
+	GL::GLint colorI;
 	
-	GLuint vao;
-	GLuint vbo;
+	GL::GLuint vao;
+	GL::GLuint vbo;
 }
 
 
@@ -41,19 +41,17 @@ void FillShader::Init()
 		"uniform vec2 center;\n"
 		"uniform vec2 size;\n"
 		
-		"in vec2 vert;\n"
+		"attribute vec2 vert;\n"
 		
 		"void main() {\n"
 		"  gl_Position = vec4((center + vert * size) * scale, 0, 1);\n"
 		"}\n";
 
 	static const char *fragmentCode =
-		"uniform vec4 color = vec4(1, 1, 1, 1);\n"
-		
-		"out vec4 finalColor;\n"
+		"uniform vec4 color;\n"
 		
 		"void main() {\n"
-		"  finalColor = color;\n"
+		"  gl_FragColor = color;\n"
 		"}\n";
 	
 	shader = Shader(vertexCode, fragmentCode);
@@ -63,26 +61,27 @@ void FillShader::Init()
 	colorI = shader.Uniform("color");
 	
 	// Generate the vertex data for drawing sprites.
-	glGenVertexArrays(1, &vao);
-	glBindVertexArray(vao);
+	gl->OES_vertex_array_object.GenVertexArrays(1, &vao);
+	gl->OES_vertex_array_object.BindVertexArray(vao);
 	
-	glGenBuffers(1, &vbo);
-	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	gl->GenBuffers(1, &vbo);
+	gl->BindBuffer(GL::ARRAY_BUFFER, vbo);
 	
-	GLfloat vertexData[] = {
+	GL::GLfloat vertexData[] = {
 		-.5f, -.5f,
 		 .5f, -.5f,
 		-.5f,  .5f,
 		 .5f,  .5f
 	};
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vertexData), vertexData, GL_STATIC_DRAW);
+	gl->BufferData(GL::ARRAY_BUFFER, sizeof(vertexData), vertexData, GL::STATIC_DRAW);
 	
-	glEnableVertexAttribArray(shader.Attrib("vert"));
-	glVertexAttribPointer(shader.Attrib("vert"), 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), nullptr);
+	gl->EnableVertexAttribArray(shader.Attrib("vert"));
+	gl->VertexAttribPointer(shader.Attrib("vert"), 2, GL::FLOAT, GL::FALSE,
+		2 * sizeof(GL::GLfloat), NULL);
 	
 	// unbind the VBO and VAO
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindVertexArray(0);
+	gl->BindBuffer(GL::ARRAY_BUFFER, 0);
+	gl->OES_vertex_array_object.BindVertexArray(0);
 }
 
 
@@ -92,22 +91,22 @@ void FillShader::Fill(const Point &center, const Point &size, const Color &color
 	if(!shader.Object())
 		throw runtime_error("FillShader: Draw() called before Init().");
 	
-	glUseProgram(shader.Object());
-	glBindVertexArray(vao);
+	gl->UseProgram(shader.Object());
+	gl->OES_vertex_array_object.BindVertexArray(vao);
 	
-	GLfloat scale[2] = {2.f / Screen::Width(), -2.f / Screen::Height()};
-	glUniform2fv(scaleI, 1, scale);
+	GL::GLfloat scale[2] = {2.f / Screen::Width(), -2.f / Screen::Height()};
+	gl->Uniform2fv(scaleI, 1, scale);
 	
-	GLfloat centerV[2] = {static_cast<float>(center.X()), static_cast<float>(center.Y())};
-	glUniform2fv(centerI, 1, centerV);
+	GL::GLfloat centerV[2] = {static_cast<float>(center.X()), static_cast<float>(center.Y())};
+	gl->Uniform2fv(centerI, 1, centerV);
 	
-	GLfloat sizeV[2] = {static_cast<float>(size.X()), static_cast<float>(size.Y())};
-	glUniform2fv(sizeI, 1, sizeV);
+	GL::GLfloat sizeV[2] = {static_cast<float>(size.X()), static_cast<float>(size.Y())};
+	gl->Uniform2fv(sizeI, 1, sizeV);
 	
-	glUniform4fv(colorI, 1, color.Get());
+	gl->Uniform4fv(colorI, 1, color.Get());
 	
-	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+	gl->DrawArrays(GL::TRIANGLE_STRIP, 0, 4);
 	
-	glBindVertexArray(0);
-	glUseProgram(0);
+	gl->OES_vertex_array_object.BindVertexArray(0);
+	gl->UseProgram(0);
 }

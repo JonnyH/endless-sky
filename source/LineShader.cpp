@@ -23,14 +23,14 @@ using namespace std;
 
 namespace {
 	Shader shader;
-	GLint scaleI;
-	GLint startI;
-	GLint lengthI;
-	GLint widthI;
-	GLint colorI;
+	GL::GLint scaleI;
+	GL::GLint startI;
+	GL::GLint lengthI;
+	GL::GLint widthI;
+	GL::GLint colorI;
 	
-	GLuint vao;
-	GLuint vbo;
+	GL::GLuint vao;
+	GL::GLuint vbo;
 }
 
 
@@ -43,9 +43,9 @@ void LineShader::Init()
 		"uniform vec2 len;\n"
 		"uniform vec2 width;\n"
 		
-		"in vec2 vert;\n"
-		"out vec2 tpos;\n"
-		"out float tscale;\n"
+		"attribute vec2 vert;\n"
+		"varying vec2 tpos;\n"
+		"varying float tscale;\n"
 		
 		"void main() {\n"
 		"  tpos = vert;\n"
@@ -54,15 +54,14 @@ void LineShader::Init()
 		"}\n";
 
 	static const char *fragmentCode =
-		"uniform vec4 color = vec4(1, 1, 1, 1);\n"
+		"uniform vec4 color;\n"
 		
-		"in vec2 tpos;\n"
-		"in float tscale;\n"
-		"out vec4 finalColor;\n"
+		"varying vec2 tpos;\n"
+		"varying float tscale;\n"
 		
 		"void main() {\n"
-		"  float alpha = min(tscale - abs(tpos.x * (2 * tscale) - tscale), 1 - abs(tpos.y));\n"
-		"  finalColor = color * alpha;\n"
+		"  float alpha = min(tscale - abs(tpos.x * (2.0 * tscale) - tscale), 1.0 - abs(tpos.y));\n"
+		"  gl_FragColor = color * alpha;\n"
 		"}\n";
 	
 	shader = Shader(vertexCode, fragmentCode);
@@ -73,26 +72,27 @@ void LineShader::Init()
 	colorI = shader.Uniform("color");
 	
 	// Generate the vertex data for drawing sprites.
-	glGenVertexArrays(1, &vao);
-	glBindVertexArray(vao);
+	gl->OES_vertex_array_object.GenVertexArrays(1, &vao);
+	gl->OES_vertex_array_object.BindVertexArray(vao);
 	
-	glGenBuffers(1, &vbo);
-	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+	gl->GenBuffers(1, &vbo);
+	gl->BindBuffer(GL::ARRAY_BUFFER, vbo);
 	
-	GLfloat vertexData[] = {
+	GL::GLfloat vertexData[] = {
 		0.f, -1.f,
 		1.f, -1.f,
 		0.f,  1.f,
 		1.f,  1.f
 	};
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vertexData), vertexData, GL_STATIC_DRAW);
+	gl->BufferData(GL::ARRAY_BUFFER, sizeof(vertexData), vertexData, GL::STATIC_DRAW);
 	
-	glEnableVertexAttribArray(shader.Attrib("vert"));
-	glVertexAttribPointer(shader.Attrib("vert"), 2, GL_FLOAT, GL_FALSE, 2 * sizeof(GLfloat), nullptr);
+	gl->EnableVertexAttribArray(shader.Attrib("vert"));
+	gl->VertexAttribPointer(shader.Attrib("vert"), 2, GL::FLOAT, GL::FALSE,
+		2 * sizeof(GL::GLfloat), NULL);
 	
 	// unbind the VBO and VAO
-	glBindBuffer(GL_ARRAY_BUFFER, 0);
-	glBindVertexArray(0);
+	gl->BindBuffer(GL::ARRAY_BUFFER, 0);
+	gl->OES_vertex_array_object.BindVertexArray(0);
 }
 
 
@@ -102,27 +102,27 @@ void LineShader::Draw(const Point &from, const Point &to, float width, const Col
 	if(!shader.Object())
 		throw runtime_error("LineShader: Draw() called before Init().");
 	
-	glUseProgram(shader.Object());
-	glBindVertexArray(vao);
+	gl->UseProgram(shader.Object());
+	gl->OES_vertex_array_object.BindVertexArray(vao);
 	
-	GLfloat scale[2] = {2.f / Screen::Width(), -2.f / Screen::Height()};
-	glUniform2fv(scaleI, 1, scale);
+	GL::GLfloat scale[2] = {2.f / Screen::Width(), -2.f / Screen::Height()};
+	gl->Uniform2fv(scaleI, 1, scale);
 	
-	GLfloat start[2] = {static_cast<float>(from.X()), static_cast<float>(from.Y())};
-	glUniform2fv(startI, 1, start);
+	GL::GLfloat start[2] = {static_cast<float>(from.X()), static_cast<float>(from.Y())};
+	gl->Uniform2fv(startI, 1, start);
 	
 	Point v = to - from;
 	Point u = v.Unit() * width;
-	GLfloat length[2] = {static_cast<float>(v.X()), static_cast<float>(v.Y())};
-	glUniform2fv(lengthI, 1, length);
+	GL::GLfloat length[2] = {static_cast<float>(v.X()), static_cast<float>(v.Y())};
+	gl->Uniform2fv(lengthI, 1, length);
 	
-	GLfloat w[2] = {static_cast<float>(u.Y()), static_cast<float>(-u.X())};
-	glUniform2fv(widthI, 1, w);
+	GL::GLfloat w[2] = {static_cast<float>(u.Y()), static_cast<float>(-u.X())};
+	gl->Uniform2fv(widthI, 1, w);
 	
-	glUniform4fv(colorI, 1, color.Get());
+	gl->Uniform4fv(colorI, 1, color.Get());
 	
-	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+	gl->DrawArrays(GL::TRIANGLE_STRIP, 0, 4);
 	
-	glBindVertexArray(0);
-	glUseProgram(0);
+	gl->OES_vertex_array_object.BindVertexArray(0);
+	gl->UseProgram(0);
 }

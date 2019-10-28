@@ -57,18 +57,21 @@ void Sprite::AddFrames(ImageBuffer &buffer, bool is2x)
 	// Check whether this sprite is large enough to require size reduction.
 	if(Preferences::Has("Reduce large graphics") && buffer.Width() * buffer.Height() >= 1000000)
 		buffer.ShrinkToHalfSize();
+		gl->GenTextures(1, &textureIndex[frame]);
+	gl->BindTexture(GL::TEXTURE_2D, textureIndex[frame]);
 	
-	// Upload the images as a single array texture.
-	glGenTextures(1, &texture[is2x]);
-	glBindTexture(GL_TEXTURE_2D_ARRAY, texture[is2x]);
+	gl->TexParameteri(GL::TEXTURE_2D, GL::TEXTURE_MIN_FILTER, GL::LINEAR);
+	gl->TexParameteri(GL::TEXTURE_2D, GL::TEXTURE_MAG_FILTER, GL::LINEAR);
+	gl->TexParameteri(GL::TEXTURE_2D, GL::TEXTURE_WRAP_S, GL::CLAMP_TO_EDGE);
+	gl->TexParameteri(GL::TEXTURE_2D, GL::TEXTURE_WRAP_T, GL::CLAMP_TO_EDGE);
 	
 	// Use linear interpolation and no wrapping.
 	glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	gl->TexImage2D(GL::TEXTURE_2D, 0, GL::RGBA, image->Width(), image->Height(), 0,
+		(GL::GLenum)GL::EXT_texture_format_BGRA8888::BGRA, GL::UNSIGNED_BYTE, image->Pixels());
 	glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	
-	// Upload the image data.
+	gl->BindTexture(GL::TEXTURE_2D, 0);
 	glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA8, // target, mipmap level, internal format,
 		buffer.Width(), buffer.Height(), buffer.Frames(), // width, height, depth,
 		0, GL_BGRA, GL_UNSIGNED_BYTE, buffer.Pixels()); // border, input format, data type, data.
@@ -97,6 +100,8 @@ void Sprite::Unload()
 {
 	glDeleteTextures(2, texture);
 	texture[0] = texture[1] = 0;
+		gl->DeleteTextures(textures.size(), &textures.front());
+		gl->DeleteTextures(textures2x.size(), &textures2x.front());
 	
 	masks.clear();
 	width = 0.f;

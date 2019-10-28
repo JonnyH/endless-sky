@@ -26,17 +26,17 @@ public:
 	Shader() = default;
 	Shader(const char *vertex, const char *fragment);
 	
-	GLuint Object() const;
-	GLint Attrib(const char *name) const;
-	GLint Uniform(const char *name) const;
+	GL::GLuint Object() const;
+	GL::GLint Attrib(const char *name) const;
+	GL::GLint Uniform(const char *name) const;
 	
 	
 private:
-	GLuint Compile(const char *str, GLenum type);
+	GL::GLuint Compile(const char *str, GL::GLenum type);
 	
 	
 private:
-	GLuint program;
+	GL::GLuint program;
 };
 
 

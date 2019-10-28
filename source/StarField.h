@@ -52,18 +52,18 @@ private:
 	std::vector<Body> haze;
 	
 	Shader shader;
-	GLuint vao;
-	GLuint vbo;
+	GL::GLuint vao;
+	GL::GLuint vbo;
 	
-	GLuint offsetI;
-	GLuint sizeI;
-	GLuint cornerI;
+	GL::GLuint offsetI;
+	GL::GLuint sizeI;
+	GL::GLuint cornerI;
 	
-	GLuint scaleI;
-	GLuint rotateI;
-	GLuint elongationI;
-	GLuint translateI;
-	GLuint brightnessI;
+	GL::GLuint scaleI;
+	GL::GLuint rotateI;
+	GL::GLuint elongationI;
+	GL::GLuint translateI;
+	GL::GLuint brightnessI;
 };
 
 

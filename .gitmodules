@@ -1,0 +1,3 @@
+[submodule "source/gleswrap"]
+	path = source/gleswrap
+	url = https://github.com/JonnyH/gleswrap.git

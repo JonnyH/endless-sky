@@ -60,7 +60,7 @@ Conversation LoadConversation();
 void InitConsole();
 #endif
 
-
+gles_wrap::gles2 *gl = nullptr;
 
 int main(int argc, char *argv[])
 {
@@ -168,39 +168,34 @@ int main(int argc, char *argv[])
 		
 		SDL_GL_SetSwapInterval(1);
 		
-		// Initialize GLEW.
-#ifndef __APPLE__
-		glewExperimental = GL_TRUE;
-		if(glewInit() != GLEW_OK)
-			return DoError("Unable to initialize GLEW!", window, context);
-#endif
-		
-		// Check that the OpenGL version is high enough.
-		const char *glVersion = reinterpret_cast<const char *>(glGetString(GL_VERSION));
-		if(!glVersion || !*glVersion)
-			return DoError("Unable to query the OpenGL version!", window, context);
-		
-		const char *glslVersion = reinterpret_cast<const char *>(glGetString(GL_SHADING_LANGUAGE_VERSION));
-		if(!glslVersion || !*glslVersion)
+		// Initialize GL.
+		if (GL::supported(true))
 		{
-			ostringstream out;
-			out << "Unable to query the GLSL version. OpenGL version is " << glVersion << ".";
-			return DoError(out.str(), window, context);
+			//using ES2 compatibility extension
+			gl = new GL(true);
 		}
-		
-		if(*glVersion < '3')
+		else if (GL::supported(false))
 		{
-			ostringstream out;
-			out << "Endless Sky requires OpenGL version 3.0 or higher." << endl;
-			out << "Your OpenGL version is " << glVersion << ", GLSL version " << glslVersion << "." << endl;
-			out << "Please update your graphics drivers.";
-			return DoError(out.str(), window, context);
+			//using ES2 context
+			gl = new GL(false);
 		}
-		
-		glClearColor(0.f, 0.f, 0.0f, 1.f);
-		glEnable(GL_BLEND);
-		glDisable(GL_DEPTH_TEST);
-		glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+		else
+		{
+			return DoError("Unable to initialise OpenGL|ES2");
+		}
+
+		if (!gl->OES_vertex_array_object.supported)
+		{
+			return DoError("Endless sky requires the GL_OES_vertex_array_object extension");
+		}
+		if (!gl->EXT_texture_format_BGRA8888.supported)
+		{
+			return DoError("Endless sky requires the GL_EXT_texture_format_BGRA8888 extension");
+		}
+		gl->ClearColor(0.f, 0.f, 0.0f, 1.f);
+		gl->Enable(GL::BLEND);
+		gl->Disable(GL::DEPTH_TEST);
+		gl->BlendFunc(GL::ONE, GL::ONE_MINUS_SRC_ALPHA);
 		
 		GameData::LoadShaders();
 		// Make sure the screen size and viewport are set correctly.
@@ -220,6 +215,7 @@ int main(int argc, char *argv[])
 		// If there are both menuPanels and gamePanels, then the menuPanels take
 		// priority over the gamePanels. The gamePanels will then not be shown until
 		// the stack of menuPanels is empty.
+			gl->Viewport(0, 0, width, height);
 		UI gamePanels;
 		// MenuPanels is used for the panels related to pilot creation, preferences,
 		// game loading and game saving.
@@ -227,27 +223,6 @@ int main(int argc, char *argv[])
 		menuPanels.Push(new MenuPanel(player, gamePanels));
 		if(!conversation.IsEmpty())
 			menuPanels.Push(new ConversationPanel(player, conversation));
-		
-		string swizzleName = "_texture_swizzle";
-#ifndef __APPLE__
-		const char *extensions = reinterpret_cast<const char *>(glGetString(GL_EXTENSIONS));
-		if(!strstr(extensions, swizzleName.c_str()))
-#else
-		bool hasSwizzle = false;
-		GLint extensionCount;
-		glGetIntegerv(GL_NUM_EXTENSIONS, &extensionCount);
-		for(GLint i = 0; i < extensionCount && !hasSwizzle; ++i)
-		{
-			const char *extension = reinterpret_cast<const char *>(glGetStringi(GL_EXTENSIONS, i));
-			hasSwizzle = (extension && strstr(extension, swizzleName.c_str()));
-		}
-		if(!hasSwizzle)
-#endif
-			menuPanels.Push(new Dialog(
-				"Note: your computer does not support the \"texture swizzling\" OpenGL feature, "
-				"which Endless Sky uses to draw ships in different colors depending on which "
-				"government they belong to. So, all human ships will be the same color, which "
-				"may be confusing. Consider upgrading your graphics driver (or your OS)."));
 		
 		bool showCursor = true;
 		int cursorTime = 0;
@@ -296,6 +271,7 @@ int main(int argc, char *argv[])
 					AdjustViewport(window);
 					if(!isFullscreen)
 						SDL_GetWindowSize(window, &windowWidth, &windowHeight);
+						gl->Viewport(0, 0, width, height);
 				}
 				else if(event.type == SDL_KEYDOWN && !toggleTimeout
 						&& (Command(event.key.keysym.sym).Has(Command::FULLSCREEN)
@@ -313,6 +289,7 @@ int main(int argc, char *argv[])
 					else
 						SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN_DESKTOP);
 				}
+					gl->Viewport(0, 0, width, height);
 				else if(activeUI.Handle(event))
 				{
 					// No need to do anything more!
@@ -520,8 +497,8 @@ int DoError(string message, SDL_Window *window, SDL_GLContext context)
 
 void Cleanup(SDL_Window *window, SDL_GLContext context)
 {
-	// Make sure the cursor is visible.
-	SDL_ShowCursor(true);
+	if (gl)
+		delete gl;
 	
 	// Clean up in the reverse order that everything is launched.
 #ifndef _WIN32

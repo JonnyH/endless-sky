@@ -70,7 +70,7 @@ PreferencesPanel::PreferencesPanel()
 // Draw this panel.
 void PreferencesPanel::Draw()
 {
-	glClear(GL_COLOR_BUFFER_BIT);
+	gl->Clear(GL::COLOR_BUFFER_BIT);
 	GameData::Background().Draw(Point(), Point());
 	
 	Information info;

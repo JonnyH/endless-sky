@@ -26,39 +26,39 @@ using namespace std;
 
 Shader::Shader(const char *vertex, const char *fragment)
 {
-	GLuint vertexShader = Compile(vertex, GL_VERTEX_SHADER);
-	GLuint fragmentShader = Compile(fragment, GL_FRAGMENT_SHADER);
+	GL::GLuint vertexShader = Compile(vertex, GL::VERTEX_SHADER);
+	GL::GLuint fragmentShader = Compile(fragment, GL::FRAGMENT_SHADER);
 	
-	program = glCreateProgram();
+	program = gl->CreateProgram();
 	if(!program)
 		throw runtime_error("Creating OpenGL shader program failed.");
 	
-	glAttachShader(program, vertexShader);
-	glAttachShader(program, fragmentShader);
+	gl->AttachShader(program, vertexShader);
+	gl->AttachShader(program, fragmentShader);
 	
-	glLinkProgram(program);
+	gl->LinkProgram(program);
 	
-	glDetachShader(program, vertexShader);
-	glDetachShader(program, fragmentShader);
+	gl->DetachShader(program, vertexShader);
+	gl->DetachShader(program, fragmentShader);
 	
-	GLint status;
-	glGetProgramiv(program, GL_LINK_STATUS, &status);
-	if(status == GL_FALSE)
+	GL::GLint status;
+	gl->GetProgramiv(program, GL::LINK_STATUS, &status);
+	if(status == GL::FALSE)
 		throw runtime_error("Linking OpenGL shader program failed.");
 }
 
 
 
-GLuint Shader::Object() const
+GL::GLuint Shader::Object() const
 {
 	return program;
 }
 
 
 
-GLint Shader::Attrib(const char *name) const
+GL::GLint Shader::Attrib(const char *name) const
 {
-	GLint attrib = glGetAttribLocation(program, name);
+	GL::GLint attrib = gl->GetAttribLocation(program, name);
 	if(attrib == -1)
 		throw runtime_error("Attribute \"" + string(name) + "\" not found.");
 	
@@ -67,9 +67,9 @@ GLint Shader::Attrib(const char *name) const
 
 
 
-GLint Shader::Uniform(const char *name) const
+GL::GLint Shader::Uniform(const char *name) const
 {
-	GLint uniform = glGetUniformLocation(program, name);
+	GL::GLint uniform = gl->GetUniformLocation(program, name);
 	if(uniform == -1)
 		throw runtime_error("Uniform \"" + string(name) + "\" not found.");
 	
@@ -78,48 +78,38 @@ GLint Shader::Uniform(const char *name) const
 
 
 
-GLuint Shader::Compile(const char *str, GLenum type)
+GL::GLuint Shader::Compile(const char *str, GL::GLenum type)
 {
-	GLuint object = glCreateShader(type);
+	GL::GLuint object = gl->CreateShader(type);
 	if(!object)
 		throw runtime_error("Shader creation failed.");
 	
-	static string version;
-	if(version.empty())
-	{
-		version = "#version ";
-		string glsl = reinterpret_cast<const char *>(glGetString(GL_SHADING_LANGUAGE_VERSION));
-		for(char c : glsl)
-		{
-			if(isspace(c))
-				break;
-			if(isdigit(c))
-				version += c;
-		}
-		version += '\n';
-	}
+	static string prefix =
+		"#version 100\n"
+		"precision highp float;\n"
+		"precision highp int;\n";
 	size_t length = strlen(str);
-	vector<GLchar> text(version.length() + length + 1);
-	memcpy(&text.front(), version.data(), version.length());
-	memcpy(&text.front() + version.length(), str, length);
-	text[version.length() + length] = '\0';
+	vector<GL::GLchar> text(prefix.length() + length + 1);
+	memcpy(&text.front(), prefix.data(), prefix.length());
+	memcpy(&text.front() + prefix.length(), str, length);
+	text[prefix.length() + length] = '\0';
 	
-	const GLchar *cText = &text.front();
-	glShaderSource(object, 1, &cText, nullptr);
-	glCompileShader(object);
+	const GL::GLchar *cText = &text.front();
+	gl->ShaderSource(object, 1, &cText, nullptr);
+	gl->CompileShader(object);
 	
-	GLint status;
-	glGetShaderiv(object, GL_COMPILE_STATUS, &status);
-	if(status == GL_FALSE)
+	GL::GLint status;
+	gl->GetShaderiv(object, GL::COMPILE_STATUS, &status);
+	if(status == GL::FALSE)
 	{
-		string error = version;
+		cerr << prefix;
 		error += string(str, length);
 		
 		static const int SIZE = 4096;
-		GLchar message[SIZE];
-		GLsizei length;
+		GL::GLchar message[SIZE];
+		GL::GLsizei length;
 		
-		glGetShaderInfoLog(object, SIZE, &length, message);
+		gl->GetShaderInfoLog(object, SIZE, &length, message);
 		error += string(message, length);
 		Files::LogError(error);
 		throw runtime_error("Shader compilation failed.");

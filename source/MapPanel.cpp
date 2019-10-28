@@ -138,7 +138,7 @@ void MapPanel::Step()
 
 void MapPanel::Draw()
 {
-	glClear(GL_COLOR_BUFFER_BIT);
+	gl->Clear(GL::COLOR_BUFFER_BIT);
 	
 	for(const auto &it : GameData::Galaxies())
 		SpriteShader::Draw(it.second.GetSprite(), Zoom() * (center + it.second.Position()), Zoom());
