@@ -223,15 +223,15 @@ void SpriteShader::Add(const Item &item, bool withBlur)
 	gl->Uniform2fv(positionI, 1, position);
 	gl->BindTexture(GL::TEXTURE_2D, tex0);
 
-	glUniform1f(frameI, item.frame);
-	glUniform1f(frameCountI, item.frameCount);
+	gl->Uniform1f(frameI, item.frame);
+	gl->Uniform1f(frameCountI, item.frameCount);
 		gl->ActiveTexture(GL::TEXTURE1);
 		gl->BindTexture(GL::TEXTURE_2D, tex1);
 		gl->ActiveTexture(GL::TEXTURE0);
-	glUniform2fv(blurI, 1, withBlur ? item.blur : UNBLURRED);
+	gl->Uniform2fv(blurI, 1, withBlur ? item.blur : UNBLURRED);
 	// Clipping has the opposite sense in the shader.
-	glUniform1f(clipI, 1.f - item.clip);
-	glUniform1f(alphaI, item.alpha);
+	gl->Uniform1f(clipI, 1.f - item.clip);
+	gl->Uniform1f(alphaI, item.alpha);
 	
 	// Bounds check for the swizzle value:
 	int swizzle = (static_cast<size_t>(item.swizzle) >= SWIZZLE.size() ? 0 : item.swizzle);
@@ -250,7 +250,4 @@ void SpriteShader::Unbind()
 {
 	gl->OES_vertex_array_object.BindVertexArray(0);
 	gl->UseProgram(0);
-	
-	// Reset the swizzle.
-	glTexParameteriv(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_SWIZZLE_RGBA, SWIZZLE[0].data());
 }

@@ -451,7 +451,7 @@ void AdjustViewport(SDL_Window *window)
 	// everything pixel-aligned.
 	drawWidth = (drawWidth * roundWidth) / width;
 	drawHeight = (drawHeight * roundHeight) / height;
-	glViewport(0, 0, drawWidth, drawHeight);
+	gl->Viewport(0, 0, drawWidth, drawHeight);
 }
 
 

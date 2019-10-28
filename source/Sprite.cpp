@@ -66,18 +66,16 @@ void Sprite::AddFrames(ImageBuffer &buffer, bool is2x)
 	gl->TexParameteri(GL::TEXTURE_2D, GL::TEXTURE_WRAP_T, GL::CLAMP_TO_EDGE);
 	
 	// Use linear interpolation and no wrapping.
-	glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	gl->TexImage2D(GL::TEXTURE_2D, 0, GL::RGBA, image->Width(), image->Height(), 0,
 		(GL::GLenum)GL::EXT_texture_format_BGRA8888::BGRA, GL::UNSIGNED_BYTE, image->Pixels());
-	glTexParameteri(GL_TEXTURE_2D_ARRAY, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 	
 	gl->BindTexture(GL::TEXTURE_2D, 0);
-	glTexImage3D(GL_TEXTURE_2D_ARRAY, 0, GL_RGBA8, // target, mipmap level, internal format,
+	gl->TexImage3D(GL_TEXTURE_2D_, 0, GL_RGBA8, // target, mipmap level, internal format,
 		buffer.Width(), buffer.Height(), buffer.Frames(), // width, height, depth,
 		0, GL_BGRA, GL_UNSIGNED_BYTE, buffer.Pixels()); // border, input format, data type, data.
 	
 	// Unbind the texture.
-	glBindTexture(GL_TEXTURE_2D_ARRAY, 0);
+	gl->BindTexture(GL_TEXTURE_2D, 0);
 	
 	// Free the ImageBuffer memory.
 	buffer.Clear();
@@ -98,7 +96,7 @@ void Sprite::AddMasks(vector<Mask> &masks)
 // Free up all textures loaded for this sprite.
 void Sprite::Unload()
 {
-	glDeleteTextures(2, texture);
+	gl->DeleteTextures(2, texture);
 	texture[0] = texture[1] = 0;
 		gl->DeleteTextures(textures.size(), &textures.front());
 		gl->DeleteTextures(textures2x.size(), &textures2x.front());

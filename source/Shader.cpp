@@ -103,7 +103,7 @@ GL::GLuint Shader::Compile(const char *str, GL::GLenum type)
 	if(status == GL::FALSE)
 	{
 		cerr << prefix;
-		error += string(str, length);
+		cerr.write(str, length);
 		
 		static const int SIZE = 4096;
 		GL::GLchar message[SIZE];
