@@ -18,6 +18,12 @@ mission "Intro [0]"
 	destination "New Greenland"
 	
 	on offer
+		log "Finally scraped together enough money for a down payment on a starship. The interest on the mortgage is exorbitant."
+		log "Factions" "Republic" `Hundreds of years ago, the independent territories in different parts of human space agreed to join together into a single democratic government, with Earth as its capital. The rise of the Republic ushered in a long period of peace and prosperity in human history.`
+			`Representation in the Republic Parliament is based on population. That means that some individual "Paradise Worlds" have more representatives than entire regions of space like the Dirt Belt that are more sparsely settled.`
+		log "Factions" "Syndicate" `The Syndicate is a megacorporation, the largest employer in human space. People who cannot find steady work elsewhere flock to the Syndicate factory worlds, where they are almost guaranteed to find a job. Although the Syndicate is technically part of the Republic, Syndicate worlds are governed directly by the corporation.`
+			`The Syndicate is a central part of the Republic's economy, but they are also well known for selling shoddy products and for doing damage to the environment on the worlds they control. Their treatment of workers is questionable, and their opposition to organized labor is legendary. Some Syndicate factory towns have even been accused of human rights abuses.`
+		log "Factions" "Pirates" `In poorer and more remote star systems, where the Navy seldom patrols, pirate attacks on merchant ships are frequent. Pirates are also known to attack large, unguarded convoys of freighters even in more populated areas. Most pirate fleets come from lawless worlds on the outskirts of human space.`
 		conversation
 			`With some trepidation, you give the shipyard owner your money and take your new ship for a test drive, piloting it out of the shipyard and onto a spare landing pad by the spaceport. Then you get out and look the ship over a bit more closely. You are busy polishing out a few rust spots with a piece of steel wool when an old man in grease-stained coveralls walks up.`
 			`	"Nothing quite like buying your very first starship," he says.`
@@ -59,6 +65,9 @@ mission "Intro [0]"
 			`	As you're helping him wheel his luggage aboard and showing him his bunk, he says, "Before we take off, you might head on over to the trading center and stock up on medical goods; we can sell those for a good profit on <planet>. Or take a look at the outfitter if you like, but they don't sell much here compared to on the big manufacturing worlds."`
 				accept
 	
+	on accept
+		log "Getting some basic instructions on making a living as a merchant from an old captain named James."
+	
 	on complete
 		payment 10000
 		conversation
@@ -67,7 +76,7 @@ mission "Intro [0]"
 			`	"Yeah, and then spent half an hour in orbit cleaning my cabin while hoping the passengers wouldn't come out of their bunk room and see the mess. Not my proudest moment. Anyway, here's your pay." He hands you <payment>.`
 			`	Then he adds, "If you're okay with giving me a lift for a while longer, sell off any of that cargo you bought and then meet me in the spaceport. I'll see if I can rustle up any interesting work for you to do."`
 			``
-			`	(Click the "Space Port" button to continue this mission.)`
+			`	(Click the "Spaceport" button to continue this mission.)`
 
 
 
@@ -104,7 +113,7 @@ mission "Intro [1 Transport]"
 			`	You say goodbye to them and wish them well, and as agreed they pay you <payment>. You are already well on your way towards paying down your mortgage!`
 			`	As James leaves the ship, he says, "Again, if you're okay with continuing to give me a ride, just meet me in the spaceport."`
 			``
-			`	(As before, click the "Space Port" button to continue this mission.)`
+			`	(As before, click the "Spaceport" button to continue this mission.)`
 
 
 
@@ -126,7 +135,7 @@ mission "Intro [2 Transport]"
 				`	"Sure!"`
 				`	"No thanks, I think I'll strike off on my own now."`
 					decline
-			`	"Great," he says. "This is Chuck, and Sarah, and their son Carl. Let's help them carry their luggage to your ship." As you begin walking back, slightly ahead of them, James whispers to you, "Tourists are always a good way to make money. They're on vacation, so they don't mind paying a bit extra. But no point in your cargo space going to waste, so take a look at the job board and see if there are any delivery missions we can run at the same time."`
+			`	"Great," he says. "This is Chuck, and Sarah, and their son Carl. Let's help them carry their luggage to your ship." As you begin walking back, slightly ahead of them, James whispers to you, "Tourists are always a good way to make money. They're on vacation, so they don't mind paying a bit extra. But no point in your cargo space going to waste, so take a look at the job board and see if there are any delivery missions we can run at the same time. And if you want to be a little safer should we come across any pirates, sell off your gun. It might seem counterintuitive, but being unarmed makes you less of a target to pirates if there are others in the system that they could be defending themselves against."`
 				accept
 	
 	on complete
@@ -163,6 +172,7 @@ mission "Intro [3 Transport]"
 	
 	on complete
 		payment 30000
+		log "Dropped James off on Hestia after running a few missions with him. Met a few spoiled tourists and got to visit Earth along the way."
 		conversation "end of intro missions"
 
 
@@ -195,7 +205,7 @@ mission "Intro [1 Freighter]"
 	on complete
 		payment 30000
 		conversation
-			`You drop off the shipment of <commodity> on <planet>, and collect your payment of <payment>. "Hauling freight," says James. "Not the most glamorous job, or the most interesting, but you're always guaranteed steady income. And once you know the galaxy a bit better, instead of taking missions you can find your own trade routes to follow. The only trouble is, build up a big enough fleet and the pirates begin to take notice."`
+			`You drop off the shipment of <commodity> on <planet>, and collect your payment of <payment>. "Hauling freight," says James. "Not the most glamorous job, or the most interesting, but you're always guaranteed steady income. And once you know the galaxy a bit better, instead of taking missions you can find your own trade routes to follow. The only trouble is, build up a fleet with lots of cargo space and not enough defenses and the pirates begin to take notice."`
 			choice
 				`	"Did you have a lot of trouble with pirates when you were a captain?"`
 					goto pirates
@@ -210,7 +220,7 @@ mission "Intro [1 Freighter]"
 			label port
 			`	He picks up his suitcase. "If you want to run another mission with me, look for me in the spaceport. I'll see if I can find you something with a bit higher profit margin this time."`
 			``
-			`	(As before, click the "Space Port" button to continue this mission.)`
+			`	(As before, click the "Spaceport" button to continue this mission.)`
 
 
 
@@ -246,7 +256,7 @@ mission "Intro [2 Freighter]"
 		payment 35000
 		conversation
 			`By now, your entire ship smells like brine and raw fish, but as best you can tell the fish is still fresh enough to eat. The dock workers on <planet> offload it without comment, and give you your payment of <payment>.`
-			`	"If you can line them up right," says James, "rush deliveries can be your best source of income as a freighter captain. And keep your eye out for missions with large amounts of cargo, too, because your barge's hold is definitely big enough to handle them. And  if you've got any cargo space to spare and you know what the prices are going to be at your destination, be sure to stock up on something you can sell for a profit."`
+			`	"If you can line them up right," says James, "rush deliveries can be your best source of income as a freighter captain. And keep your eye out for missions with large amounts of cargo, too, because your barge's hold is definitely big enough to handle them. And if you've got any cargo space to spare and you know what the prices are going to be at your destination, be sure to stock up on something you can sell for a profit."`
 			choice
 				`	"What would you recommend if I want to do more than just carry cargo?"`
 					goto more
@@ -291,6 +301,7 @@ mission "Intro [3 Freighter]"
 	
 	on complete
 		payment 30000
+		log "Dropped James off on Hestia after running a few missions with him. Ship still smells like fish."
 		conversation "end of intro missions"
 
 
@@ -333,9 +344,9 @@ mission "Intro [1 Interceptor]"
 		payment 30000
 		conversation
 			`The captain of the Horn of Plenty hands you <payment> and thanks you for your escort services. From the expression on his face, you'd guess that he's feeling lucky to still be alive after entrusting the safety of his fleet to a rookie pilot like yourself.`
-			`	After he is gone, James turns to you and says, "Not too bad for your first escort mission. If you've still got a hankering for some dangerous missions, come and find me in the spaceport before you leave." He picks up his suitcase and heads outside.`
+			`	After he is gone, James turns to you and says, "Not too bad for your first escort mission. I recognize that look on your face - it's the same one I had after my first job like this back when I was a beginner. If I recall, my first priority after touching down was replacing some of the ship's guns with missile launchers so I'd actually have a chance against pirates. It's a scandal how they sell interceptors with nothing but short-ranged energy weapons these days; trying to use them in combat on such a small ship is practically suicide. Keep your distance with some missiles and you can almost never go wrong. Anyway, I'll stop rambling. If you've still got a hankering for some dangerous missions, come and find me in the spaceport before you leave." He picks up his suitcase and heads outside.`
 			``
-			`	(As before, click the "Space Port" button to continue this mission. The next mission will involve carrying cargo, so it will only show up if you have all 15 tons of space free.)`
+			`	(As before, click the "Spaceport" button to continue this mission. The next mission will involve carrying cargo, so it will only show up if you have all 15 tons of space free.)`
 
 
 
@@ -371,7 +382,7 @@ mission "Intro [2 Interceptor]"
 				`	"Got it."`
 					accept
 				`	"I really shouldn't try to fight?"`
-			`	"It just isn't feasible," he says. "If a ship has turrets, your Sparrow can't get close enough to hit it without being damaged, and then it's just a matter of whose weapons and shields are stronger. And one heavy rocket hit could nearly disable you. So, don't risk it."`
+			`	"It just isn't feasible," he says. "If a ship has turrets, your Sparrow can't get close enough to hit it with your guns without being damaged, and then it's just a matter of whose weapons and shields are stronger. And one heavy rocket hit could nearly disable you. Also, if it has anti-missile turrets, you can't count on hanging back and bombarding it with missiles from long distances, or at least not with weapons that can fit in a Sparrow. So, don't risk it. It's like rock paper scissors; recgonize what your enemy's strengths and weaknesses are, as well as your own."`
 				accept
 	
 	on complete
@@ -381,7 +392,7 @@ mission "Intro [2 Interceptor]"
 			choice
 				`	"Sure, but I can't wait until I've got a ship big enough to stand up to pirates instead of running from them."`
 				`	"Well, maybe I should've bought a freighter instead."`
-			`	"Better start saving up then," he says. "Anyway, let's go get your payment." You walk out of the ship and sign the papers to hand off the <commodity> to the dock workers on <planet>. They hand you a credit chip worth <payment>.`
+			`	"Better start saving up then," he says. "I know a number of old Sparrow pilots who made their first million credits mining asteroids before they could afford a more combat-worthy ship. They had to look around for a while before finding a system with any asteroids worth mining, but it was worth it. Anyway, let's go get your payment." You walk out of the ship and sign the papers to hand off the <commodity> to the dock workers on <planet>. They hand you a credit chip worth <payment>.`
 			`	"If you're willing to take me on one more journey," says James, "meet me in the spaceport bar in a little while."`
 
 
@@ -416,6 +427,7 @@ mission "Intro [3 Interceptor]"
 	
 	on complete
 		payment 30000
+		log "Dropped James off on Hestia after running a few missions with him. Escort duty is a risky business."
 		conversation "end of intro missions"
 
 
@@ -437,5 +449,42 @@ conversation "end of intro missions"
 		goto next
 	
 	label next
-	`	There's an awkward pause. You're unsure of how to respond. Then he says, "Thing is, this here planet is one of the most exclusive retirement communities in the galaxy. Plenty of the locals are probably worth more than a billion credits. But they're mostly financial or business types, or old money. I'm rich enough to be here, but I just hope they're willing to socialize with someone who made his fortune flying a ship."`
-	`	He hands you a credit chip worth <payment>, and says, "Best of luck to you, Captain. Don't hesitate to look me up if you're ever in the area."`
+	`	There's an awkward pause. You're unsure of how to respond. Then he says, "Thing is, this here planet is one of the most exclusive retirement communities in the galaxy. Plenty of the locals are probably worth more than a billion credits. But they're mostly financial or business types, or old money. I'm rich enough to be here, but I just hope they're willing to socialize with someone who made his fortune flying a ship.`
+	`	"Before you go, is there anything else you'd like to ask me about being a new pilot?"`
+	label choices
+	choice
+		`	"Where should I go if I want to avoid pirates?"`
+		`	"What's a good place to mine asteroids?"`
+			goto asteroids
+		`	"Have you ever met any aliens?"`
+			goto aliens
+		`	"Are there any good trade routes you can give me?"`
+			goto trade
+		`	"Where can I find well-paying jobs?"`
+			goto jobs
+		`	"I think I'll manage."`
+			goto end
+	`	"Stay near Sol and around the Paradise Worlds. The Navy stays there the most, so even if a pirate does show up, they won't last long. The Deep is also a pretty safe place, as they have their own security forces. Once you start moving farther south, things get riskier. The worlds down there don't bring in as much tax revenue as the Paradise Worlds do, so the Navy tends to ignore them. You'll find some local militia to back you up, but they're nothing compared to one of the Navy's Cruisers.`
+		goto more
+	
+	label asteroids
+	`	"Well to start off, you'll want to stay right here in the Paradise Worlds. The asteroids aren't the best, but it's the safest place to mine while you're still in a small ship. But once you're in something that's able to take a hit, you'll want to explore for an uninhabited system with lots of asteroids. You'll encounter more pirates, but you'll likely find better asteroids.`
+		goto more
+	
+	label aliens
+	`	"I've spoken with the Quarg a few times, but what captain hasn't? You'll find them down south by Tarazed. I haven't met any other aliens," he pauses for a moment, " as far as I'm aware, that is, but I'm sure they're out there if you go looking hard enough. I've explored all of Republic space in my many years, but there are far more systems out there that we don't even know how to reach.`
+		goto more
+	
+	label trade
+	`	"One of the most reliable trade routes is to bring food from the Dirt Belt to Earth or the other urban worlds around it. There are billions of mouths to feed on those worlds, and the Dirt Belt sells food for cheap, so it's a great place to get started. Just remember though that if you use the same trade route for too long, you might end up causing the prices to stabilize. The Dirt Belt can only produce food and people can only eat it so fast, so change up your trade routes if you notice the return getting worse.`
+		goto more
+	
+	label jobs
+	`	"Getting good jobs is more about having the space to accept the good jobs than it is finding them, but if you're looking for jobs that pay well for little effort, then you'll want to watch out around the holidays. There's always a big celebration on Earth every Earth Day, so pay attention to the job board in the months leading up to that. The people down in the Rim have some month-long celebration every August that you should look out for too.`
+	
+	label more
+	`	"Anything else you want to ask me?"`
+		goto choices
+		
+	label end
+	`	He hands you a credit chip worth <payment>, and says, "Best of luck to you, Captain. Don't hesitate to look me up if you're ever in the area. And remember to check the spaceports wherever you land. You never know who you'll find wandering around there."`

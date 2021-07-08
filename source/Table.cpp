@@ -1,4 +1,4 @@
-/* Table.h
+/* Table.cpp
 Copyright (c) 2014 by Michael Zahniser
 
 Endless Sky is free software: you can redistribute it and/or modify it under the
@@ -16,6 +16,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include "Font.h"
 #include "FontSet.h"
 #include "Format.h"
+#include "Rectangle.h"
 
 using namespace std;
 
@@ -42,7 +43,7 @@ void Table::Clear()
 	
 	point = Point();
 	it = columns.begin();
-	color = Color(1., 0.);
+	color = Color(1.f, 0.f);
 }
 
 
@@ -240,6 +241,13 @@ Point Table::GetCenterPoint() const
 Point Table::GetRowSize() const
 {
 	return rowSize;
+}
+
+
+
+Rectangle Table::GetRowBounds() const
+{
+	return Rectangle(GetCenterPoint(), GetRowSize());
 }
 
 

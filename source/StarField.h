@@ -19,7 +19,9 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
 #include <vector>
 
+class Body;
 class Point;
+class Sprite;
 
 
 
@@ -32,8 +34,9 @@ class Point;
 class StarField {
 public:
 	void Init(int stars, int width);
+	void SetHaze(const Sprite *sprite);
 	
-	void Draw(const Point &pos, const Point &vel) const;
+	void Draw(const Point &pos, const Point &vel, double zoom = 1.) const;
 	
 	
 private:
@@ -46,6 +49,8 @@ private:
 	int tileCols;
 	std::vector<int> tileIndex;
 	
+	std::vector<Body> haze;
+	
 	Shader shader;
 	GL::GLuint vao;
 	GL::GLuint vbo;
@@ -56,8 +61,9 @@ private:
 	
 	GL::GLuint scaleI;
 	GL::GLuint rotateI;
-	GL::GLuint lengthI;
+	GL::GLuint elongationI;
 	GL::GLuint translateI;
+	GL::GLuint brightnessI;
 };
 
 

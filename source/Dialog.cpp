@@ -15,6 +15,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include "Color.h"
 #include "Command.h"
 #include "Conversation.h"
+#include "DataNode.h"
 #include "FillShader.h"
 #include "Font.h"
 #include "FontSet.h"
@@ -34,11 +35,11 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 using namespace std;
 
 namespace {
-	static const int WIDTH = 250;
+	const int WIDTH = 250;
 	
 	// Map any conceivable numeric keypad keys to their ASCII values. Most of
 	// these will presumably only exist on special programming keyboards.
-	static const map<SDL_Keycode, char> KEY_MAP = {
+	const map<SDL_Keycode, char> KEY_MAP = {
 		{SDLK_KP_0, '0'},
 		{SDLK_KP_1, '1'},
 		{SDLK_KP_2, '2'},
@@ -102,7 +103,7 @@ Dialog::Dialog(const string &text, PlayerInfo &player, const System *system)
 
 
 // Draw this panel.
-void Dialog::Draw() const
+void Dialog::Draw()
 {
 	DrawBackdrop();
 	
@@ -112,7 +113,7 @@ void Dialog::Draw() const
 	const Sprite *cancel = SpriteSet::Get("ui/dialog cancel");
 	
 	// Get the position of the top of this dialog, and of the text and input.
-	Point pos(0., (top->Height() + height * middle->Height() + bottom->Height()) * -.5);
+	Point pos(0., (top->Height() + height * middle->Height() + bottom->Height()) * -.5f);
 	Point textPos(WIDTH * -.5 + 10., pos.Y() + 20.);
 	Point inputPos = Point(0., -70.) - pos;
 	
@@ -136,9 +137,9 @@ void Dialog::Draw() const
 	pos.Y() += bottom->Height() * .5 - 25.;
 	
 	// Draw the buttons, including optionally the cancel button.
-	Color bright = *GameData::Colors().Get("bright");
-	Color dim = *GameData::Colors().Get("medium");
-	Color back = *GameData::Colors().Get("faint");
+	const Color &bright = *GameData::Colors().Get("bright");
+	const Color &dim = *GameData::Colors().Get("medium");
+	const Color &back = *GameData::Colors().Get("faint");
 	if(canCancel)
 	{
 		string cancelText = isMission ? "Decline" : "Cancel";
@@ -167,22 +168,48 @@ void Dialog::Draw() const
 		Point stringPos(
 			inputPos.X() - (WIDTH - 20) * .5 + 5.,
 			inputPos.Y() - .5 * font.Height());
-		font.Draw(input, stringPos, bright);
+		string truncated = font.TruncateFront(input, WIDTH - 30);
+		font.Draw(truncated, stringPos, bright);
 		
-		Point barPos(stringPos.X() + font.Width(input) + 2., inputPos.Y());
+		Point barPos(stringPos.X() + font.Width(truncated) + 2., inputPos.Y());
 		FillShader::Fill(barPos, Point(1., 16.), dim);
 	}
 }
 
 
 
-bool Dialog::KeyDown(SDL_Keycode key, Uint16 mod, const Command &command)
+// Format and add the text from the given node to the given string.
+void Dialog::ParseTextNode(const DataNode &node, size_t startingIndex, string &text)
+{
+	for(int i = startingIndex; i < node.Size(); ++i)
+	{
+		if(!text.empty())
+			text += "\n\t";
+		text += node.Token(i);
+	}
+	for(const DataNode &child : node)
+		for(int i = 0; i < child.Size(); ++i)
+		{
+			if(!text.empty())
+				text += "\n\t";
+			text += child.Token(i);
+		}
+}
+
+
+
+bool Dialog::KeyDown(SDL_Keycode key, Uint16 mod, const Command &command, bool isNewPress)
 {
 	auto it = KEY_MAP.find(key);
-	if((it != KEY_MAP.end() || (key >= ' ' && key <= '~')) && !isMission && (intFun || stringFun))
+	bool isCloseRequest = key == SDLK_ESCAPE || (key == 'w' && (mod & (KMOD_CTRL | KMOD_GUI)));
+	if((it != KEY_MAP.end() || (key >= ' ' && key <= '~')) && !isMission && (intFun || stringFun) && !isCloseRequest)
 	{
 		int ascii = (it != KEY_MAP.end()) ? it->second : key;
-		char c = ((mod & (KMOD_SHIFT | KMOD_CAPS)) ? SHIFT[ascii] : ascii);
+		char c = ((mod & KMOD_SHIFT) ? SHIFT[ascii] : ascii);
+		// Caps lock should shift letters, but not any other keys.
+		if((mod & KMOD_CAPS) && c >= 'a' && c <= 'z')
+			c += 'A' - 'a';
+		
 		if(stringFun)
 			input += c;
 		// Integer input should not allow leading zeros.
@@ -199,12 +226,13 @@ bool Dialog::KeyDown(SDL_Keycode key, Uint16 mod, const Command &command)
 		okIsActive = !canCancel;
 	else if(key == SDLK_RIGHT)
 		okIsActive = true;
-	else if(key == SDLK_RETURN || key == SDLK_KP_ENTER || key == 'a' || key == 'd')
+	else if(key == SDLK_RETURN || key == SDLK_KP_ENTER || isCloseRequest
+			|| (isMission && (key == 'a' || key == 'd')))
 	{
 		// Shortcuts for "accept" and "decline."
-		if(key == 'a')
+		if(key == 'a' || (!canCancel && isCloseRequest))
 			okIsActive = true;
-		if(key == 'd')
+		if(key == 'd' || (canCancel && isCloseRequest))
 			okIsActive = false;
 		if(okIsActive || isMission)
 			DoCallback();
@@ -212,7 +240,7 @@ bool Dialog::KeyDown(SDL_Keycode key, Uint16 mod, const Command &command)
 		GetUI()->Pop(this);
 	}
 	else if((key == 'm' || command.Has(Command::MAP)) && system && player)
-		GetUI()->Push(new MapDetailPanel(*player, -4, system));
+		GetUI()->Push(new MapDetailPanel(*player, system));
 	else
 		return false;
 	
@@ -221,7 +249,7 @@ bool Dialog::KeyDown(SDL_Keycode key, Uint16 mod, const Command &command)
 
 
 
-bool Dialog::Click(int x, int y)
+bool Dialog::Click(int x, int y, int clicks)
 {
 	Point clickPos(x, y);
 	
@@ -264,7 +292,7 @@ void Dialog::Init(const string &message, bool canCancel, bool isMission)
 	// bottom are "padding," but text.Height() over-reports the height by about
 	// 5 pixels because it includes its own padding at the bottom. If there is a
 	// text input, we need another 20 pixels for it and 10 pixels padding.
-	height = 10 + (text.Height() - 5) + 10 + 30 * (intFun || stringFun);
+	height = 10 + (text.Height() - 5) + 10 + 30 * (!isMission && (intFun || stringFun));
 	// Determine how many 40-pixel extension panels we need.
 	if(height <= 80)
 		height = 0;
@@ -285,7 +313,16 @@ void Dialog::DoCallback() const
 	}
 	
 	if(intFun)
-		intFun(input.empty() ? 0 : stoi(input));
+	{
+		// Only call the callback if the input can be converted to an int.
+		// Otherwise treat this as if the player clicked "cancel."
+		try {
+			intFun(stoi(input));
+		}
+		catch(...)
+		{
+		}
+	}
 	
 	if(stringFun)
 		stringFun(input);

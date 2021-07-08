@@ -21,6 +21,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
 class Color;
 class Mission;
+class PlayerInfo;
 
 
 
@@ -30,31 +31,34 @@ class Mission;
 // have previously accepted.
 class MissionPanel : public MapPanel {
 public:
-	MissionPanel(PlayerInfo &player);
-	MissionPanel(const MapPanel &panel);
+	explicit MissionPanel(PlayerInfo &player);
+	explicit MissionPanel(const MapPanel &panel);
 	
 	virtual void Step() override;
-	virtual void Draw() const override;
+	virtual void Draw() override;
 	
 	
 protected:
 	// Only override the ones you need; the default action is to return false.
-	virtual bool KeyDown(SDL_Keycode key, Uint16 mod, const Command &command) override;
-	virtual bool Click(int x, int y) override;
+	virtual bool KeyDown(SDL_Keycode key, Uint16 mod, const Command &command, bool isNewPress) override;
+	virtual bool Click(int x, int y, int clicks) override;
 	virtual bool Drag(double dx, double dy) override;
 	virtual bool Hover(int x, int y) override;
 	virtual bool Scroll(double dx, double dy) override;
 	
 	
 private:
-	void DoFind(const std::string &text);
-	
+	// Display and explain the various pointers that may appear on the map.
 	void DrawKey() const;
+	// Display the name of and distance to the selected system.
 	void DrawSelectedSystem() const;
+	// Draw rings around systems that need to be visited for the given mission.
 	void DrawMissionSystem(const Mission &mission, const Color &color) const;
+	// Draw the backgrounds for the "available jobs" and accepted missions/jobs lists.
 	Point DrawPanel(Point pos, const std::string &label, int entries) const;
+	// Draw the display names of the given missions, using the reference point.
 	Point DrawList(const std::list<Mission> &list, Point pos) const;
-	void DrawMissionInfo() const;
+	void DrawMissionInfo();
 	
 	bool CanAccept() const;
 	void Accept();
@@ -79,7 +83,7 @@ private:
 	double acceptedScroll = 0.;
 	
 	int dragSide = 0;
-	mutable WrappedText wrap;
+	WrappedText wrap;
 };
 
 

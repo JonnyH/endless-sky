@@ -29,38 +29,39 @@ class Ship;
 
 // This panel is displayed whenever your flagship boards another ship, to give
 // you a choice of what to plunder or whether to attempt to capture it. The
-// items you can plunder are shown in a list sorted by value per ton. This also
-// handles the crew "bonus" that must be paid if you try to capture a ship, to
-// compensate for them risking their lives. (The bonus is needed to keep ship
-// capture from being so lucrative that the player can almost immediately have
-// ridiculous amounts of money as soon as they get a ship that is capable of
-// easily capturing other ships. It also serves as a penalty for capturing ships
-// and then failing to protect them.
+// items you can plunder are shown in a list sorted by value per ton. Ship
+// capture is "turn-based" combat where each "turn" one or both ships lose crew.
 class BoardingPanel : public Panel {
 public:
 	BoardingPanel(PlayerInfo &player, const std::shared_ptr<Ship> &victim);
 	
-	virtual void Draw() const override;
+	virtual void Draw() override;
 	
 	
 protected:
-	// Only override the ones you need; the default action is to return false.
-	virtual bool KeyDown(SDL_Keycode key, Uint16 mod, const Command &command) override;
-	virtual bool Click(int x, int y) override;
+	// Overrides from Panel.
+	virtual bool KeyDown(SDL_Keycode key, Uint16 mod, const Command &command, bool isNewPress) override;
+	virtual bool Click(int x, int y, int clicks) override;
 	virtual bool Drag(double dx, double dy) override;
 	virtual bool Scroll(double dx, double dy) override;
 	
 	
 private:
+	// You can't exit this dialog if you are in the middle of combat.
 	bool CanExit() const;
-	bool CanTake(int index = -1) const;
+	// Check if you can take the outfit at the given position in the list.
+	bool CanTake() const;
+	// Check if you can initiate hand to hand combat.
 	bool CanCapture() const;
+	// Check if you are in the midst of hand to hand combat.
 	bool CanAttack() const;
 	
 	
 private:
+	// This class represents one item in the list of outfits you can plunder.
 	class Plunder {
 	public:
+		// Plunder can be either outfits or commodities.
 		Plunder(const std::string &commodity, int count, int unitValue);
 		Plunder(const Outfit *outfit, int count);
 		
@@ -86,7 +87,7 @@ private:
 		const Outfit *GetOutfit() const;
 		// Find out how many of these I can take if I have this amount of cargo
 		// space free.
-		int CanTake(int freeSpace) const;
+		bool CanTake(const Ship &ship) const;
 		// Take some or all of this plunder item.
 		void Take(int count);
 		
@@ -108,6 +109,7 @@ private:
 	std::shared_ptr<Ship> you;
 	std::shared_ptr<Ship> victim;
 	
+	// List of items you can plunder.
 	std::vector<Plunder> plunder;
 	int selected = 0;
 	double scroll = 0.;
@@ -115,13 +117,12 @@ private:
 	bool playerDied = false;
 	bool isCapturing = false;
 	bool isFirstCaptureAction = true;
+	// Calculating the odds of combat success, and the expected casualties, is
+	// non-trivial. So, cache the results for all crew amounts up to full.
 	CaptureOdds attackOdds;
 	CaptureOdds defenseOdds;
+	// These messages are shown to report the results of hand to hand combat.
 	std::vector<std::string> messages;
-	
-	int64_t initialCrew;
-	int64_t casualties = 0;
-	int64_t crewBonus = 0;
 };
 
 

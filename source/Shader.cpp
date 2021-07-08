@@ -12,10 +12,12 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
 #include "Shader.h"
 
+#include "Files.h"
+
 #include <cctype>
 #include <cstring>
-#include <iostream>
 #include <stdexcept>
+#include <string>
 #include <vector>
 
 using namespace std;
@@ -93,7 +95,7 @@ GL::GLuint Shader::Compile(const char *str, GL::GLenum type)
 	text[prefix.length() + length] = '\0';
 	
 	const GL::GLchar *cText = &text.front();
-	gl->ShaderSource(object, 1, &cText, NULL);
+	gl->ShaderSource(object, 1, &cText, nullptr);
 	gl->CompileShader(object);
 	
 	GL::GLint status;
@@ -108,7 +110,8 @@ GL::GLuint Shader::Compile(const char *str, GL::GLenum type)
 		GL::GLsizei length;
 		
 		gl->GetShaderInfoLog(object, SIZE, &length, message);
-		cerr.write(message, length);
+		error += string(message, length);
+		Files::LogError(error);
 		throw runtime_error("Shader compilation failed.");
 	}
 	

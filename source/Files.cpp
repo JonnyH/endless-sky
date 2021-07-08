@@ -102,6 +102,9 @@ void Files::Init(const char * const *argv)
 		// Find the path to the resource directory. This will depend on the
 		// operating system, and can be overridden by a command line argument.
 		char *str = SDL_GetBasePath();
+		if(!str)
+			throw runtime_error("Unable to get path to resource directory!");
+		
 		resources = str;
 		SDL_free(str);
 	}
@@ -144,6 +147,9 @@ void Files::Init(const char * const *argv)
 		// Find the path to the directory for saved games (and create it if it does
 		// not already exist). This can also be overridden in the command line.
 		char *str = SDL_GetPrefPath("endless-sky", "saves");
+		if(!str)
+			throw runtime_error("Unable to get path to saves directory!");
+		
 		saves = str;
 #if defined _WIN32
 		FixWindowsSlashes(saves);
@@ -352,7 +358,7 @@ void Files::RecursiveList(string directory, vector<string> *list)
 #if defined _WIN32
 	WIN32_FIND_DATAW ffd;
 	HANDLE hFind = FindFirstFileW(ToUTF16(directory + '*').c_str(), &ffd);
-	if(!hFind)
+	if(hFind == INVALID_HANDLE_VALUE)
 		return;
 	
 	do {
@@ -413,12 +419,37 @@ bool Files::Exists(const string &filePath)
 
 
 
+time_t Files::Timestamp(const string &filePath)
+{
+#if defined _WIN32
+	struct _stat buf;
+	_wstat(ToUTF16(filePath).c_str(), &buf);
+#else
+	struct stat buf;
+	stat(filePath.c_str(), &buf);
+#endif
+	return buf.st_mtime;
+}
+
+
+
 void Files::Copy(const string &from, const string &to)
 {
 #if defined _WIN32
 	CopyFileW(ToUTF16(from).c_str(), ToUTF16(to).c_str(), false);
 #else
 	Write(to, Read(from));
+#endif
+}
+
+
+
+void Files::Move(const string &from, const string &to)
+{
+#if defined _WIN32
+	MoveFileExW(ToUTF16(from).c_str(), ToUTF16(to).c_str(), MOVEFILE_REPLACE_EXISTING);
+#else
+	rename(from.c_str(), to.c_str());
 #endif
 }
 
@@ -448,7 +479,7 @@ string Files::Name(const string &path)
 FILE *Files::Open(const string &path, bool write)
 {
 #if defined _WIN32
-	return _wfopen(ToUTF16(path).c_str(), write ? L"wb" : L"rb");
+	return _wfopen(ToUTF16(path).c_str(), write ? L"w" : L"rb");
 #else
 	return fopen(path.c_str(), write ? "wb" : "rb");
 #endif

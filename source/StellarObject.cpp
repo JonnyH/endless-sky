@@ -12,10 +12,11 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
 #include "StellarObject.h"
 
-#include "Color.h"
 #include "GameData.h"
+#include "Government.h"
 #include "Planet.h"
 #include "Politics.h"
+#include "Radar.h"
 
 #include <algorithm>
 
@@ -29,32 +30,9 @@ StellarObject::StellarObject()
 	distance(0.), speed(0.), offset(0.), parent(-1),
 	message(nullptr), isStar(false), isStation(false), isMoon(false)
 {
-}
-
-
-
-// Some objects do not have sprites, because they are just an orbital
-// center for two or more other objects.
-const Animation &StellarObject::GetSprite() const
-{
-	return animation;
-}
-
-
-
-// Get this object's position on the date most recently passed to this
-// system's SetDate() function.
-const Point &StellarObject::Position() const
-{
-	return position;
-}
-
-
-
-// Get the unit vector representing the rotation of this object.
-const Point &StellarObject::Unit() const
-{
-	return unit;
+	// Unlike ships and projectiles, stellar objects are not drawn shrunk to half size,
+	// because they do not need to be so sharp.
+	zoom = 2.;
 }
 
 
@@ -63,8 +41,8 @@ const Point &StellarObject::Unit() const
 double StellarObject::Radius() const
 {
 	double radius = -1.;
-	if(!animation.IsEmpty())
-		radius = .5 * min(animation.Width(), animation.Height());
+	if(HasSprite())
+		radius = .5 * min(Width(), Height());
 	
 	// Special case: stars may have a huge cloud around them, but only count the
 	// core of the cloud as part of the radius.
@@ -99,39 +77,33 @@ const string &StellarObject::Name() const
 // explaining why (e.g. too hot, too cold, etc.).
 const string &StellarObject::LandingMessage() const
 {
-	if(!planet && Radius() >= 130.)
-	{
-		static const string GAS = "You cannot land on a gas giant.";
-		return GAS;
-	}
+	// Check if there's a custom message for this sprite type.
+	if(GameData::HasLandingMessage(GetSprite()))
+		return GameData::LandingMessage(GetSprite());
+	
 	static const string EMPTY;
-	return (message) ? *message : EMPTY;
+	return (message ? *message : EMPTY);
 }
 
 
 
 // Get the color to be used for displaying this object.
-const Color &StellarObject::TargetColor() const
+int StellarObject::RadarType(const Ship *ship) const
 {
-	static const Color planetColor[6] = {
-		Color(1., 1., 1., 1.),
-		Color(.3, .3, .3, 1.),
-		Color(0., .8, 1., 1.),
-		Color(.8, .4, .2, 1.),
-		Color(.8, .3, 1., 1.),
-		Color(0., .8, 0., 1.)
-	};
-	int index = !IsStar() + (GetPlanet() != nullptr);
-	if(GetPlanet())
-	{
-		if(!GetPlanet()->CanLand())
-			index = 3;
-		if(GetPlanet()->IsWormhole())
-			index = 4;
-		if(GameData::GetPolitics().HasDominated(GetPlanet()))
-			index = 5;
-	}
-	return planetColor[index];
+	if(IsStar())
+		return Radar::SPECIAL;
+	else if(!planet || !planet->IsAccessible(ship))
+		return Radar::INACTIVE;
+	else if(planet->IsWormhole())
+		return Radar::ANOMALOUS;
+	else if(GameData::GetPolitics().HasDominated(planet))
+		return Radar::PLAYER;
+	else if(planet->CanLand())
+		return Radar::FRIENDLY;
+	else if(!planet->GetGovernment()->IsEnemy())
+		return Radar::UNFRIENDLY;
+	
+	return Radar::HOSTILE;
 }
 
 

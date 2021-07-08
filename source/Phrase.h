@@ -20,23 +20,24 @@ class DataNode;
 
 
 
-// Class representing a set of rules for generating random ship names.
+// Class representing a set of rules for generating text strings from words.
 class Phrase {
 public:
 	void Load(const DataNode &node);
 	
+	const std::string &Name() const;
 	std::string Get() const;
 	
 	
 private:
-	bool ReferencesPhrase(const std::string &name) const;
+	bool ReferencesPhrase(const Phrase *phrase) const;
 	
 	
 private:
 	class Part {
 	public:
 		std::vector<std::string> words;
-		const Phrase *phrase = nullptr;
+		std::vector<const Phrase *> phrases;
 	};
 	
 	

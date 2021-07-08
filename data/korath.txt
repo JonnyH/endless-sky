@@ -128,57 +128,88 @@ phrase "korath"
 		"far"
 
 phrase "kor sestor"
-	phrase "digit"
-	phrase "digit"
+	phrase
+		"digit"
+	phrase
+		"digit"
 	word
 		"-"
-	phrase "digit"
-	phrase "digit"
-	phrase "digit"
+	phrase
+		"digit"
+	phrase
+		"digit"
+	phrase
+		"digit"
 	word
 		"."
-	phrase "digit"
+	phrase
+		"digit"
 
 phrase "kor sestor fighter"
-	phrase "digit"
-	phrase "digit"
-	phrase "digit"
+	phrase
+		"digit"
+	phrase
+		"digit"
+	phrase
+		"digit"
 	word
 		" "
-	phrase "digit"
+	phrase
+		"digit"
 	word
 		"-"
-	phrase "digit"
-	phrase "digit"
+	phrase
+		"digit"
+	phrase
+		"digit"
 	word
 		"."
-	phrase "digit"
+	phrase
+		"digit"
 
 phrase "kor mereti"
-	phrase "digit"
-	phrase "digit"
+	phrase
+		"digit"
+	phrase
+		"digit"
 	word
 		":"
-	phrase "digit"
-	phrase "digit"
+	phrase
+		"digit"
+	phrase
+		"digit"
 	word
 		":"
-	phrase "digit"
-	phrase "digit"
+	phrase
+		"digit"
+	phrase
+		"digit"
 	word
 		":"
-	phrase "digit"
+	phrase
+		"digit"
 
 
 fleet "Korath Raid"
 	government "Korath"
 	names "korath"
 	fighters "korath"
-	cargo 3
+	cargo 1
 	personality
-		plunders
+		disables plunders opportunistic harvests
 	variant
 		"Korath Raider"
+		"Korath Chaser" 2
+
+fleet "Korath Ember Waste Raid"
+	government "Korath"
+	names "korath"
+	fighters "korath"
+	cargo 1
+	personality
+		disables plunders opportunistic harvests
+	variant
+		"Korath Raider (Ember)"
 		"Korath Chaser" 2
 
 fleet "Korath Home"
@@ -187,12 +218,12 @@ fleet "Korath Home"
 	fighters "korath"
 	cargo 3
 	personality
-		timid
-	variant
+		timid opportunistic
+	variant 12
 		"Korath World-Ship"
-	variant
+	variant 12
 		"Korath World-Ship B"
-	variant
+	variant 12
 		"Korath World-Ship C"
 
 
@@ -215,8 +246,7 @@ fleet "Small Kor Sestor"
 	government "Kor Sestor"
 	names "kor sestor"
 	fighters "kor sestor fighter"
-	personality
-		heroic
+	commodities Plastic Equipment Industrial Electronics "Heavy Metals"
 	variant 5
 		"Met Par Tek 53" 3
 	variant 5
@@ -274,8 +304,7 @@ fleet "Large Kor Sestor"
 	government "Kor Sestor"
 	names "kor sestor"
 	fighters "kor sestor fighter"
-	personality
-		heroic
+	commodities Plastic Equipment Industrial Electronics "Heavy Metals"
 	variant 8
 		"Kar Ik Vot 349"
 		"Tek Far 71 - Lek"
@@ -365,29 +394,32 @@ fleet "Large Kor Sestor"
 		"Kar Ik Vot 349 (Trapper)"
 		"Met Par Tek 53 (Sniper)" 3
 	variant 5
-		"Tek Far 109" 2
-		"Far Lek 14" 18
-		"Far Osk 27" 14
+		"Tek Far 109" 3
+		"Far Lek 14" 27
+		"Far Osk 27" 21
 	variant 3
 		"Tek Far 109"
 		"Tek Far 71 - Lek"
 		"Tek Far 78 - Osk"
 		"Far Lek 14" 17
 		"Far Osk 27" 13
+		"Met Par Tek 53 (Sniper)" 2
 	variant 3
 		"Tek Far 109"
 		"Tek Far 71 - Lek (Close Quarters)"
 		"Tek Far 78 - Osk (Close Quarters)"
 		"Far Lek 14" 17
 		"Far Osk 27" 13
+		"Met Par Tek 53" 2
 
 
 fleet "Small Kor Mereti"
 	government "Kor Mereti"
 	names "kor mereti"
 	fighters "kor mereti"
+	commodities Plastic Equipment Industrial Electronics "Heavy Metals"
 	personality
-		heroic
+		opportunistic
 	variant 1
 		"Model 64"
 		"Model 32"
@@ -436,8 +468,9 @@ fleet "Large Kor Mereti"
 	government "Kor Mereti"
 	names "kor mereti"
 	fighters "kor mereti"
+	commodities Plastic Equipment Industrial Electronics "Heavy Metals"
 	personality
-		heroic
+		opportunistic
 	variant 5
 		"Model 512"
 		"Model 32"
@@ -534,13 +567,28 @@ fleet "Large Kor Mereti"
 	variant 5
 		"Model 128" 2
 
+fleet "Kor Mereti Miners"
+	government "Kor Mereti"
+	names "kor mereti"
+	cargo 0
+	personality
+		mining harvests
+	variant 10
+		"Model 8"
+	variant 3
+		"Model 8" 2
+	variant 1
+		"Model 8" 3
+
 
 outfitter "Korath Basics"
+	"Korath Piercer Rack"
+	"Korath Mine Rack"
 	"Command Center"
+	"Hyperdrive"
 	"Small Bunk Room"
 	"Bunk Room"
-	"Fuel Pod"
-	"Ramscoop"
-	"Mass Expansion"
+	"Fuel Processor"
+	"Outfits Expansion"
 	"Cargo Expansion"
 	"Local Map"

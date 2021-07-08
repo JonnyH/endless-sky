@@ -13,11 +13,10 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #ifndef STELLAR_OBJECT_H_
 #define STELLAR_OBJECT_H_
 
-#include "Animation.h"
-#include "Point.h"
+#include "Body.h"
 
-class Color;
 class Planet;
+class Ship;
 
 
 
@@ -26,18 +25,21 @@ class Planet;
 // handled by the Planet class. Each object's position depends on what it is
 // orbiting around and how far away it is from that object. Each day, all the
 // objects in each system move slightly in their orbits.
-class StellarObject {
+class StellarObject : public Body {
 public:
 	StellarObject();
 	
-	// Some objects do not have sprites, because they are just an orbital
-	// center for two or more other objects.
-	const Animation &GetSprite() const;
-	// Get this object's position on the date most recently passed to this
-	// system's SetDate() function.
+	/* Functions provided by the Body base class:
+	bool HasSprite() const;
+	int Width() const;
+	int Height() const;
+	Frame GetFrame(int step = -1) const;
 	const Point &Position() const;
-	// Get the unit vector representing the rotation of this object.
-	const Point &Unit() const;
+	const Point &Velocity() const;
+	const Angle &Facing() const;
+	Point Unit() const;
+	*/
+	
 	// Get the radius of this planet, i.e. how close you must be to land.
 	double Radius() const;
 	// If it is possible to land on this planet, this returns the Planet
@@ -50,8 +52,8 @@ public:
 	// explaining why (e.g. too hot, too cold, etc.).
 	const std::string &LandingMessage() const;
 	
-	// Get the color to be used for displaying this object.
-	const Color &TargetColor() const;
+	// Get the radar color to be used for displaying this object.
+	int RadarType(const Ship *ship) const;
 	// Check if this is a star.
 	bool IsStar() const;
 	// Check if this is a station.
@@ -65,9 +67,6 @@ public:
 	
 	
 private:
-	Animation animation;
-	Point position;
-	Point unit;
 	const Planet *planet;
 	
 	double distance;

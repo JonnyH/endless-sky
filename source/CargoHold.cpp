@@ -1,4 +1,4 @@
-/* CargoHold.h
+/* CargoHold.cpp
 Copyright (c) 2014 by Michael Zahniser
 
 Endless Sky is free software: you can redistribute it and/or modify it under the
@@ -14,17 +14,40 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
 #include "DataNode.h"
 #include "DataWriter.h"
+#include "Depreciation.h"
 #include "GameData.h"
 #include "Mission.h"
 #include "Outfit.h"
 #include "System.h"
 
 #include <algorithm>
+#include <cmath>
+#include <vector>
 
 using namespace std;
 
+namespace {
+	// Retrieve vector of pointers to the outfits, sorted descending by size.
+	vector<const Outfit *> OrderOutfitsBySize(const map<const Outfit *, int> &outfits)
+	{
+		vector<const Outfit *> sortedOutfits;
+		for(const auto &it : outfits)
+			sortedOutfits.emplace_back(it.first);
+		
+		sort(sortedOutfits.begin(), sortedOutfits.end(),
+			[] (const Outfit *lhs, const Outfit *rhs)
+			{
+				return lhs->Mass() > rhs->Mass();
+			}
+		);
+		
+		return sortedOutfits;
+	}
+}
 
 
+
+// Remove any items in this cargo hold.
 void CargoHold::Clear()
 {
 	size = 0;
@@ -41,6 +64,7 @@ void CargoHold::Clear()
 // GameData is loaded, so that the sizes of any outfits are known.
 void CargoHold::Load(const DataNode &node)
 {
+	// Cargo is stored as name / amount pairs in two lists: commodities and outfits.
 	for(const DataNode &child : node)
 	{
 		if(child.Token(0) == "commodities")
@@ -73,6 +97,7 @@ void CargoHold::Save(DataWriter &out) const
 	for(const auto &it : commodities)
 		if(it.second)
 		{
+			// Only write a "cargo" block if it is not going to be empty.
 			if(first)
 			{
 				out.Write("cargo");
@@ -84,6 +109,7 @@ void CargoHold::Save(DataWriter &out) const
 			
 			out.Write(it.first, it.second);
 		}
+	// We only need to EndChild() if at least one line was written above.
 	if(!first)
 		out.EndChild();
 	
@@ -110,6 +136,8 @@ void CargoHold::Save(DataWriter &out) const
 			
 			out.Write(it.first->Name(), it.second);
 		}
+	// Back out any indentation blocks that are set, depending on what sorts of
+	// cargo were written to the file.
 	if(!firstOutfit)
 		out.EndChild();
 	if(!first)
@@ -129,6 +157,7 @@ void CargoHold::SetSize(int tons)
 
 
 
+// Get the capacity of this hold.
 int CargoHold::Size() const
 {
 	return size;
@@ -136,6 +165,7 @@ int CargoHold::Size() const
 
 
 
+// Get the amount of free cargo space.
 int CargoHold::Free() const
 {
 	return size - Used();
@@ -143,21 +173,16 @@ int CargoHold::Free() const
 
 
 
+// Get the total amount of cargo space used, rounded up to the nearest ton.
+// (Some outfits may have non-integral masses.)
 int CargoHold::Used() const
 {
-	int used = 0;
-	for(const auto &it : commodities)
-		used += it.second;
-	for(const auto &it : outfits)
-		used += it.second * it.first->Get("mass");
-	for(const auto &it : missionCargo)
-		used += it.second;
-	
-	return used;
+	return CommoditiesSize() + OutfitsSize() + MissionCargoSize();
 }
 
 
 
+// Get the total number of tons of commodities.
 int CargoHold::CommoditiesSize() const
 {
 	int size = 0;
@@ -168,26 +193,33 @@ int CargoHold::CommoditiesSize() const
 
 
 
+// Get the total mass of outfit cargo, rounded up to the nearest ton.
 int CargoHold::OutfitsSize() const
 {
-	int size = 0;
+	double size = 0.;
 	for(const auto &it : outfits)
-		size += it.second * it.first->Get("mass");
-	return size;
+		size += it.second * it.first->Mass();
+	return ceil(size);
 }
 
 
 
+// Check if any outfits are being carried. Note that some outfits may have mass
+// zero, so this check cannot be done by calling OutfitsSize().
 bool CargoHold::HasOutfits() const
 {
+	// The code for adding and removing outfits does not clear the entry in the
+	// map if its value becomes zero, so we need to check all the entries:
 	for(const auto &it : outfits)
 		if(it.second)
 			return true;
+	
 	return false;
 }
 
 
 
+// Get the total mass of mission cargo.
 int CargoHold::MissionCargoSize() const
 {
 	int size = 0;
@@ -198,6 +230,8 @@ int CargoHold::MissionCargoSize() const
 
 
 
+// Check if any mission cargo is being carried. Some mission cargo has no mass,
+// so this cannot be done by calling MissionCargoSize().
 bool CargoHold::HasMissionCargo() const
 {
 	return !missionCargo.empty();
@@ -205,9 +239,12 @@ bool CargoHold::HasMissionCargo() const
 
 
 
+// Check if there is anything in this cargo hold (including passengers).
 bool CargoHold::IsEmpty() const
 {
-	return commodities.empty() && outfits.empty() && missionCargo.empty() && passengers.empty();
+	// The outfits map's entries are not erased if they are equal to zero, so
+	// it's not enough to just test outfits.empty().
+	return commodities.empty() && !HasOutfits() && missionCargo.empty() && passengers.empty();
 }
 
 
@@ -220,13 +257,15 @@ void CargoHold::SetBunks(int count)
 
 
 
-int CargoHold::Bunks() const
+// Check how many bunks are free.
+int CargoHold::BunksFree() const
 {
 	return bunks - Passengers();
 }
 
 
 
+// Check how many bunks are occupied by passengers.
 int CargoHold::Passengers() const
 {
 	int count = 0;
@@ -246,7 +285,7 @@ int CargoHold::Get(const string &commodity) const
 
 
 
-// Spare outfits:
+// Spare outfits (including plunder and mined materials):
 int CargoHold::Get(const Outfit *outfit) const
 {
 	map<const Outfit *, int>::const_iterator it = outfits.find(outfit);
@@ -264,6 +303,7 @@ int CargoHold::Get(const Mission *mission) const
 
 
 
+// Check how many passengers for the given mission are being carried.
 int CargoHold::GetPassengers(const Mission *mission) const
 {
 	map<const Mission *, int>::const_iterator it = passengers.find(mission);
@@ -272,6 +312,7 @@ int CargoHold::GetPassengers(const Mission *mission) const
 
 
 
+// Access the commodities map directly.
 const map<string, int> &CargoHold::Commodities() const
 {
 	return commodities;
@@ -279,6 +320,7 @@ const map<string, int> &CargoHold::Commodities() const
 
 
 
+// Access the outfits map directly.
 const map<const Outfit *, int> &CargoHold::Outfits() const
 {
 	return outfits;
@@ -286,6 +328,7 @@ const map<const Outfit *, int> &CargoHold::Outfits() const
 
 
 
+// Access the mission cargo map directly.
 const map<const Mission *, int> &CargoHold::MissionCargo() const
 {
 	return missionCargo;
@@ -293,6 +336,7 @@ const map<const Mission *, int> &CargoHold::MissionCargo() const
 
 
 
+// Access the mission passenger map directly.
 const map<const Mission *, int> &CargoHold::PassengerList() const
 {
 	return passengers;
@@ -300,106 +344,86 @@ const map<const Mission *, int> &CargoHold::PassengerList() const
 
 
 
-// For all the transfer functions, the "other" can be null if you simply want
-// the commodity to "disappear" or, if the "amount" is negative, to have an
-// unlimited supply. The return value is the actual number transferred.
-int CargoHold::Transfer(const string &commodity, int amount, CargoHold *to)
+// Transfer ordinary commodities from one cargo hold to another.
+int CargoHold::Transfer(const string &commodity, int amount, CargoHold &to)
 {
-	// Take your free capacity into account here too.
-	amount = min(amount, Get(commodity));
-	if(size >= 0)
-		amount = max(amount, -max(Free(), 0));
-	if(to)
-	{
-		amount = max(amount, -to->Get(commodity));
-		if(to->size >= 0)
-			amount = min(amount, max(to->Free(), 0));
-	}
 	if(!amount)
 		return 0;
 	
-	commodities[commodity] -= amount;
-	if(to)
-		to->commodities[commodity] += amount;
+	// Remove up to the specified tons of cargo from this cargo hold, adding
+	// them to the given cargo hold if possible. If not possible, add the
+	// remainder back to this cargo hold, even if there is not space for it.
+	int removed = Remove(commodity, amount);
+	int added = to.Add(commodity, removed);
+	commodities[commodity] += removed - added;
 	
-	return amount;
+	return added;
 }
 
 
 
-int CargoHold::Transfer(const Outfit *outfit, int amount, CargoHold *to)
+// Transfer outfits from one cargo hold to another.
+int CargoHold::Transfer(const Outfit *outfit, int amount, CargoHold &to)
 {
-	int mass = outfit->Get("mass");
-	
-	amount = min(amount, Get(outfit));
-	if(size >= 0 && mass)
-		amount = max(amount, -max(Free(), 0) / mass);
-	if(to)
-	{
-		amount = max(amount, -to->Get(outfit));
-		if(to->size >= 0 && mass)
-			amount = min(amount, max(to->Free(), 0) / mass);
-	}
 	if(!amount)
 		return 0;
 	
-	outfits[outfit] -= amount;
-	if(to)
-		to->outfits[outfit] += amount;
+	// Remove up to the specified number of items from this cargo hold, adding
+	// them to the given cargo hold if possible. If not possible, add the
+	// remainder back to this cargo hold, even if there is not space for it.
+	int removed = Remove(outfit, amount);
+	int added = to.Add(outfit, removed);
+	outfits[outfit] += removed - added;
 	
-	return amount;
+	return added;
 }
 
 
 
-int CargoHold::Transfer(const Mission *mission, int amount, CargoHold *to)
+// Transfer mission cargo from one cargo hold to another.
+int CargoHold::Transfer(const Mission *mission, int amount, CargoHold &to)
 {
-	// Special case: if the mission cargo has zero size, always transfer it. But
-	// if it has nonzero size and zero can fit, do _not_ transfer it.
-	if(amount)
-	{
-		// Take your free capacity into account here too.
-		amount = min(amount, Get(mission));
-		if(size >= 0)
-			amount = max(amount, -max(Free(), 0));
-		if(to)
-		{
-			amount = max(amount, -to->Get(mission));
-			if(to->size >= 0)
-				amount = min(amount, max(to->Free(), 0));
-		}
-		if(!amount)
-			return 0;
-	}
+	// A negative amount means a transfer in the opposite direction.
+	if(amount < 0)
+		return -to.Transfer(mission, -amount, *this);
+	
+	// If transferring 0 cargo, don't create an entry in the destination cargo
+	// hold unless told to transfer 0 and the amount in this cargo hold is 0.
+	int existing = Get(mission);
+	if(amount && !existing)
+		return 0;
+	amount = min(amount, existing);
+	if(to.size >= 0)
+		amount = max(0, min(amount, to.Free()));
+	// Don't transfer 0 tons unless that's all that exists.
+	if(existing && !amount)
+		return 0;
 	
 	missionCargo[mission] -= amount;
-	if(to)
-		to->missionCargo[mission] += amount;
+	to.missionCargo[mission] += amount;
 	
 	return amount;
 }
 
 
 
-int CargoHold::TransferPassengers(const Mission *mission, int amount, CargoHold *to)
+// Transfer mission passengers from one cargo hold to another.
+int CargoHold::TransferPassengers(const Mission *mission, int amount, CargoHold &to)
 {
-	// Take your free capacity into account here too.
+	// A negative amount means a transfer in the opposite direction.
+	if(amount < 0)
+		return -to.TransferPassengers(mission, -amount, *this);
+	
+	// Check if the destination cargo hold has a limit on the number of bunks.
 	amount = min(amount, GetPassengers(mission));
-	if(bunks >= 0)
-		amount = max(amount, -max(Bunks(), 0));
-	if(to)
+	if(to.bunks >= 0)
+		amount = max(0, min(amount, to.BunksFree()));
+	
+	if(amount)
 	{
-		amount = max(amount, -to->GetPassengers(mission));
-		if(to->bunks >= 0)
-			amount = min(amount, max(to->Bunks(), 0));
+		passengers[mission] -= amount;
+		to.passengers[mission] += amount;
 	}
-	if(!amount)
-		return 0;
-	
-	passengers[mission] -= amount;
-	if(to)
-		to->passengers[mission] += amount;
-	
 	return amount;
 }
 
@@ -407,19 +431,11 @@ int CargoHold::TransferPassengers(const Mission *mission, int amount, CargoHold 
 
 // Transfer as much as the given cargo hold has capacity for. The priority is
 // first mission cargo, then spare outfits, then ordinary commodities.
-void CargoHold::TransferAll(CargoHold *to)
+void CargoHold::TransferAll(CargoHold &to, bool transferPassengers)
 {
-	// If there is no destination specified, just unload everything.
-	if(!to)
-	{
-		commodities.clear();
-		outfits.clear();
-		missionCargo.clear();
-		return;
-	}
-	
-	for(const auto &it : passengers)
-		TransferPassengers(it.first, it.second, to);
+	if(transferPassengers)
+		for(const auto &it : passengers)
+			TransferPassengers(it.first, it.second, to);
 	// Handle zero-size mission cargo correctly. For mission cargo, having an
 	// entry in the map, but with a size of zero, is different than not having
 	// an entry at all.
@@ -432,14 +448,73 @@ void CargoHold::TransferAll(CargoHold *to)
 		else
 			++mit;
 	}
-	for(const auto &it : outfits)
-		Transfer(it.first, it.second, to);
+	const vector<const Outfit *> outfitOrder = OrderOutfitsBySize(outfits);
+	for(const auto &outfit : outfitOrder)
+		Transfer(outfit, outfits[outfit], to);
 	for(const auto &it : commodities)
 		Transfer(it.first, it.second, to);
 }
 
 
 
+// Add the given amount of the given commodity.
+int CargoHold::Add(const string &commodity, int amount)
+{
+	if(amount < 0)
+		return -Remove(commodity, -amount);
+	
+	// If this cargo hold has a size limit, apply it.
+	if(size >= 0)
+		amount = max(0, min(amount, Free()));
+	commodities[commodity] += amount;
+	return amount;
+}
+
+
+
+// Add the given number of copies of the given outfit.
+int CargoHold::Add(const Outfit *outfit, int amount)
+{
+	if(amount < 0)
+		return -Remove(outfit, -amount);
+	
+	// If the outfit has mass and this cargo hold has a size limit, apply it.
+	double mass = outfit->Mass();
+	if(size >= 0 && mass > 0.)
+		amount = max(0, min(amount, static_cast<int>(Free() / mass)));
+	outfits[outfit] += amount;
+	return amount;
+}
+
+
+
+// Remove the given amount of the given commodity.
+int CargoHold::Remove(const string &commodity, int amount)
+{
+	if(amount < 0)
+		return Add(commodity, -amount);
+	
+	amount = min(amount, commodities[commodity]);
+	commodities[commodity] -= amount;
+	return amount;
+}
+
+
+
+// Remove the given number of copies of the given outfit.
+int CargoHold::Remove(const Outfit *outfit, int amount)
+{
+	if(amount < 0)
+		return Add(outfit, -amount);
+	
+	amount = min(amount, outfits[outfit]);
+	outfits[outfit] -= amount;
+	return amount;
+}
+
+
+
+// Add all the cargo and passengers associated with the given mission.
 void CargoHold::AddMissionCargo(const Mission *mission)
 {
 	// If the mission defines a cargo string, create an entry for it even if the
@@ -453,27 +528,25 @@ void CargoHold::AddMissionCargo(const Mission *mission)
 
 
 
+// Remove all the cargo and passengers (if any) associated with the given mission.
 void CargoHold::RemoveMissionCargo(const Mission *mission)
 {
-	auto it = missionCargo.find(mission);
-	if(it != missionCargo.end())
-		missionCargo.erase(it);
-	
-	auto pit = passengers.find(mission);
-	if(pit != passengers.end())
-		passengers.erase(pit);
+	missionCargo.erase(mission);
+	passengers.erase(mission);
 }
 
 
 	
 // Get the total value of all this cargo, in the given system.
-int CargoHold::Value(const System *system) const
+int64_t CargoHold::Value(const System *system) const
 {
-	int value = 0;
+	int64_t value = 0;
 	for(const auto &it : commodities)
 		value += system->Trade(it.first) * it.second;
+	// For outfits, assume they're fully depreciated, since that will always be
+	// the case unless the player bought into cargo for some reason.
 	for(const auto &it : outfits)
-		value += it.first->Cost() * it.second;
+		value += it.first->Cost() * it.second * Depreciation::Full();
 	return value;
 }
 
@@ -501,5 +574,14 @@ int CargoHold::IllegalCargoFine() const
 			return fine;
 		worst = max(worst, fine);
 	}
+	
+	for(const auto &it : passengers)
+	{
+		int fine = it.first->IllegalCargoFine();
+		if(fine < 0)
+			return fine;
+		worst = max(worst, fine);
+	}
+	
 	return worst;
 }

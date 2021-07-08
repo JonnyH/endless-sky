@@ -14,7 +14,11 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
 #include "Color.h"
 #include "Command.h"
+#include "Dialog.h"
 #include "FillShader.h"
+#include "GameData.h"
+#include "Point.h"
+#include "Preferences.h"
 #include "Screen.h"
 #include "UI.h"
 
@@ -37,7 +41,7 @@ void Panel::Step()
 
 
 // Draw this panel.
-void Panel::Draw() const
+void Panel::Draw()
 {
 }
 
@@ -69,15 +73,59 @@ bool Panel::IsInterruptible() const
 
 
 
+// Clear the list of clickable zones.
+void Panel::ClearZones()
+{
+	zones.clear();
+}
+
+
+
+// Add a clickable zone to the panel.
+void Panel::AddZone(const Rectangle &rect, const function<void()> &fun)
+{
+	// The most recently added zone will typically correspond to what was drawn
+	// most recently, so it should be on top.
+	zones.emplace_front(rect, fun);
+}
+
+
+
+void Panel::AddZone(const Rectangle &rect, SDL_Keycode key)
+{
+	AddZone(rect, [this, key](){ this->KeyDown(key, 0, Command(), true); });
+}
+
+
+
+// Check if a click at the given coordinates triggers a clickable zone. If
+// so, apply that zone's action and return true.
+bool Panel::ZoneClick(const Point &point)
+{
+	for(const Zone &zone : zones)
+		if(zone.Contains(point))
+		{
+			// If the panel is in editing mode, make sure it knows that a mouse
+			// click has broken it out of that mode, so it doesn't interpret a
+			// button press and a text character entered.
+			EndEditing();
+			zone.Click();
+			return true;
+		}
+	return false;
+}
+
+
+
 // Only override the ones you need; the default action is to return false.
-bool Panel::KeyDown(SDL_Keycode key, Uint16 mod, const Command &command)
+bool Panel::KeyDown(SDL_Keycode key, Uint16 mod, const Command &command, bool isNewPress)
 {
 	return false;
 }
 
 
 
-bool Panel::Click(int x, int y)
+bool Panel::Click(int x, int y, int clicks)
 {
 	return false;
 }
@@ -147,7 +195,7 @@ void Panel::DrawBackdrop() const
 		return;
 	
 	// Darken everything but the dialog.
-	Color back(0., .7);
+	const Color &back = *GameData::Colors().Get("dialog backdrop");
 	FillShader::Fill(Point(), Point(Screen::Width(), Screen::Height()), back);
 }
 
@@ -166,7 +214,7 @@ UI *Panel::GetUI() const
 // user-defined command key will override it.
 bool Panel::DoKey(SDL_Keycode key, Uint16 mod)
 {
-	return KeyDown(key, mod, Command());
+	return KeyDown(key, mod, Command(), true);
 }
 
 
@@ -186,6 +234,26 @@ int Panel::Modifier()
 		modifier *= 5;
 	
 	return modifier;
+}
+
+
+
+// Display the given help message if it has not yet been shown. Return true
+// if the message was displayed.
+bool Panel::DoHelp(const string &name) const
+{
+	string preference = "help: " + name;
+	if(Preferences::Has(preference))
+		return false;
+	
+	const string &message = GameData::HelpMessage(name);
+	if(message.empty())
+		return false;
+	
+	Preferences::Set(preference);
+	ui->Push(new Dialog(message));
+	
+	return true;
 }
 
 

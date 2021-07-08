@@ -14,17 +14,8 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
 #include "Audio.h"
 #include "DataNode.h"
-#include "Random.h"
 
 using namespace std;
-
-
-
-Effect::Effect()
-	: sound(nullptr), velocityScale(1.), randomVelocity(0.),
-	randomAngle(0.), randomSpin(0.), randomFrameRate(0.), lifetime(0)
-{
-}
 
 
 
@@ -43,7 +34,7 @@ void Effect::Load(const DataNode &node)
 	for(const DataNode &child : node)
 	{
 		if(child.Token(0) == "sprite")
-			animation.Load(child);
+			LoadSprite(child);
 		else if(child.Token(0) == "sound" && child.Size() >= 2)
 			sound = Audio::Get(child.Token(1));
 		else if(child.Token(0) == "lifetime" && child.Size() >= 2)
@@ -61,68 +52,4 @@ void Effect::Load(const DataNode &node)
 		else
 			child.PrintTrace("Skipping unrecognized attribute:");
 	}
-}
-
-
-
-// If creating a new effect, the animation and lifetime are copied,
-// but position, velocity, and angle are specific to this new effect.
-void Effect::Place(Point pos, Point vel, Angle angle, Point hitVelocity)
-{
-	this->angle = angle + Angle::Random(randomAngle) - Angle::Random(randomAngle);
-	spin = Angle::Random(randomSpin) - Angle::Random(randomSpin);
-	
-	position = pos;
-	velocity = (vel - hitVelocity) * velocityScale + hitVelocity
-		+ this->angle.Unit() * Random::Real() * randomVelocity;
-	
-	if(sound)
-		Audio::Play(sound, position);
-	
-	if(randomFrameRate)
-		animation.AddFrameRate(randomFrameRate * Random::Real());
-}
-
-
-
-// This returns false if it is time to delete this effect.
-bool Effect::Move()
-{
-	if(lifetime-- <= 0)
-		return false;
-	
-	position += velocity;
-	angle += spin;
-	
-	return true;
-}
-
-
-
-// Get the projectiles characteristics, for drawing.
-const Animation &Effect::GetSprite() const
-{
-	return animation;
-}
-
-
-
-const Point &Effect::Position() const
-{
-	return position;
-}
-
-
-
-const Point &Effect::Velocity() const
-{
-	return velocity;
-}
-
-
-
-// Get the facing unit vector times the scale factor.
-Point Effect::Unit() const
-{
-	return angle.Unit() * .5;
 }

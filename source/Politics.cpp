@@ -1,4 +1,4 @@
-/* Politics.h
+/* Politics.cpp
 Copyright (c) 2014 by Michael Zahniser
 
 Endless Sky is free software: you can redistribute it and/or modify it under the
@@ -20,9 +20,9 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include "Random.h"
 #include "Ship.h"
 #include "ShipEvent.h"
-#include "System.h"
 
 #include <algorithm>
+#include <cmath>
 
 using namespace std;
 
@@ -99,8 +99,12 @@ void Politics::Offend(const Government *gov, int eventType, int count)
 				provoked.insert(other);
 			}
 		}
-		else if(count * weight)
+		else if(count && abs(weight) >= .05)
 		{
+			// Weights less than 5% should never cause permanent reputation
+			// changes. This is to allow two governments to be hostile or
+			// friendly without the player's behavior toward one of them
+			// influencing their reputation with the other.
 			double penalty = (count * weight) * other->PenaltyFor(eventType);
 			if(eventType & ShipEvent::ATROCITY)
 				reputationWith[other] = min(0., reputationWith[other]);
@@ -131,9 +135,8 @@ bool Politics::CanLand(const Ship &ship, const Planet *planet) const
 		return true;
 	
 	const Government *gov = ship.GetGovernment();
-	const Government *systemGov = planet->GetGovernment();
 	if(!gov->IsPlayer())
-		return !IsEnemy(gov, systemGov);
+		return !IsEnemy(gov, planet->GetGovernment());
 	
 	return CanLand(planet);
 }
@@ -148,10 +151,10 @@ bool Politics::CanLand(const Planet *planet) const
 		return true;
 	if(dominatedPlanets.count(planet))
 		return true;
-	if(provoked.count(planet->GetGovernment()))
-		return false;
 	if(bribedPlanets.count(planet))
 		return true;
+	if(provoked.count(planet->GetGovernment()))
+		return false;
 	
 	return Reputation(planet->GetGovernment()) >= planet->RequiredReputation();
 }
@@ -182,9 +185,12 @@ void Politics::BribePlanet(const Planet *planet, bool fullAccess)
 
 
 
-void Politics::DominatePlanet(const Planet *planet)
+void Politics::DominatePlanet(const Planet *planet, bool dominate)
 {
-	dominatedPlanets.insert(planet);
+	if(dominate)
+		dominatedPlanets.insert(planet);
+	else
+		dominatedPlanets.erase(planet);
 }
 
 
@@ -201,8 +207,7 @@ string Politics::Fine(PlayerInfo &player, const Government *gov, int scan, const
 {
 	// Do nothing if you have already been fined today, or if you evade
 	// detection.
-	auto it = fined.find(gov);
-	if(it != fined.end() || Random::Real() > security || !gov->GetFineFraction())
+	if(fined.count(gov) || Random::Real() > security || !gov->GetFineFraction())
 		return "";
 	
 	string reason;
@@ -223,7 +228,21 @@ string Politics::Fine(PlayerInfo &player, const Government *gov, int scan, const
 			if((fine > maxFine && maxFine >= 0) || fine < 0)
 			{
 				maxFine = fine;
-				reason = "carrying illegal cargo.";
+				reason = " for carrying illegal cargo.";
+
+				for(const Mission &mission : player.Missions())
+				{
+					// Append the illegalCargoMessage from each applicable mission, if available
+					string illegalCargoMessage = mission.IllegalCargoMessage();
+					if(!illegalCargoMessage.empty())
+					{
+						reason = ".\n\t";
+						reason.append(illegalCargoMessage);
+					}
+					// Fail any missions with illegal cargo and "Stealth" set
+					if(mission.IllegalCargoFine() > 0 && mission.FailIfDiscovered())
+						player.FailMission(mission);
+				}
 			}
 		}
 		if(!scan || (scan & ShipEvent::SCAN_OUTFITS))
@@ -232,10 +251,12 @@ string Politics::Fine(PlayerInfo &player, const Government *gov, int scan, const
 				if(it.second)
 				{
 					int64_t fine = it.first->Get("illegal");
+					if(it.first->Get("atrocity") > 0.)
+						fine = -1;
 					if((fine > maxFine && maxFine >= 0) || fine < 0)
 					{
 						maxFine = fine;
-						reason = "having illegal outfits installed on your ship.";
+						reason = " for having illegal outfits installed on your ship.";
 					}
 				}
 		}
@@ -248,15 +269,15 @@ string Politics::Fine(PlayerInfo &player, const Government *gov, int scan, const
 			reason = "atrocity";
 		else
 			reason = "After scanning your ship, the " + gov->GetName()
-				+ " captain hails you with a grim expression on his face. He says, \"You are guilty of "
-				+ reason + " The penalty for your actions is death. Goodbye.\"";
+				+ " captain hails you with a grim expression on his face. He says, "
+				"\"I'm afraid we're going to have to put you to death " + reason + " Goodbye.\"";
 	}
 	else if(maxFine > 0)
 	{
 		// Scale the fine based on how lenient this government is.
-		maxFine = maxFine * gov->GetFineFraction() + .5;
-		reason = "The " + gov->GetName() + " fines you "
-			+ Format::Number(maxFine) + " credits for " + reason;
+		maxFine = lround(maxFine * gov->GetFineFraction());
+		reason = "The " + gov->GetName() + " authorities fine you "
+			+ Format::Credits(maxFine) + " credits" + reason;
 		player.Accounts().AddFine(maxFine);
 		fined.insert(gov);
 	}

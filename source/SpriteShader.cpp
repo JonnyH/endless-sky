@@ -17,6 +17,8 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include "Shader.h"
 #include "Sprite.h"
 
+#include <vector>
+
 using namespace std;
 
 namespace {
@@ -78,9 +80,9 @@ namespace {
 void SpriteShader::Init()
 {
 	static const char *vertexCode =
-		"uniform mat2 transform;\n"
-		"uniform vec2 position;\n"
 		"uniform vec2 scale;\n"
+		"uniform vec2 position;\n"
+		"uniform mat2 transform;\n"
 		"uniform vec2 blur;\n"
 		"uniform float clip;\n"
 		
@@ -93,47 +95,58 @@ void SpriteShader::Init()
 		"  vec2 texCoord = vert + vec2(.5, .5);\n"
 		"  fragTexCoord = vec2(texCoord.x, max(clip, texCoord.y)) + blurOff;\n"
 		"}\n";
-
+	
 	static const char *fragmentCode =
-		"uniform sampler2D tex0;\n"
-		"uniform sampler2D tex1;\n"
-		"uniform float fade;\n"
+		"uniform sampler2DArray tex;\n"
+		"uniform float frame;\n"
+		"uniform float frameCount;\n"
 		"uniform vec2 blur;\n"
 		"uniform mat4 tex_matrix;\n"
 		"const int range = 5;\n"
 		
 		"varying vec2 fragTexCoord;\n"
 		
+		
 		"void main() {\n"
 		"  if(blur.x == 0.0 && blur.y == 0.0)\n"
+		"  float second = mod(ceil(frame), frameCount);\n"
+		"  float fade = frame - first;\n"
+		"  vec4 color;\n"
 		"  {\n"
 		"    if(fade != 0.0)\n"
 		"     gl_FragColor = tex_matrix * mix(texture2D(tex0, fragTexCoord), texture2D(tex1, fragTexCoord), fade);\n"
+		"        texture(tex, vec3(fragTexCoord, first)),\n"
+		"        texture(tex, vec3(fragTexCoord, second)), fade);\n"
 		"    else\n"
 		"      gl_FragColor = tex_matrix * texture2D(tex0, fragTexCoord);\n"
-		"    return;\n"
 		"  }\n"
 		"  const float divisor = float(range) * (float(range) + 2.0) + 1.0;\n"
-		"  vec4 color = vec4(0., 0., 0., 0.);\n"
-		"  for(int i = -range; i <= range; ++i)\n"
 		"  {\n"
+		"    color = vec4(0., 0., 0., 0.);\n"
+		"    for(int i = -range; i <= range; ++i)\n"
+		"    {\n"
 		"    float scale = (float(range) + 1.0 - abs(float(i))) / divisor;\n"
 		"    vec2 coord = fragTexCoord + (blur * float(i)) / float(range);\n"
 		"    if(fade != 0.0)\n"
 		"      color += scale * mix(texture2D(tex0, coord), texture2D(tex1, coord), fade);\n"
-		"    else\n"
+		"          texture(tex, vec3(coord, first)),\n"
+		"          texture(tex, vec3(coord, second)), fade);\n"
+		"      else\n"
 		"      color += scale * texture2D(tex0, coord);\n"
-		"  }\n"
+		"    }\n"
 		"  gl_FragColor = tex_matrix * color;\n"
+		"  finalColor = color * alpha;\n"
 		"}\n";
 	
 	shader = Shader(vertexCode, fragmentCode);
 	scaleI = shader.Uniform("scale");
-	transformI = shader.Uniform("transform");
+	frameI = shader.Uniform("frame");
+	frameCountI = shader.Uniform("frameCount");
 	positionI = shader.Uniform("position");
+	transformI = shader.Uniform("transform");
 	blurI = shader.Uniform("blur");
 	clipI = shader.Uniform("clip");
-	fadeI = shader.Uniform("fade");
+	alphaI = shader.Uniform("alpha");
 	texmatrixI = shader.Uniform("tex_matrix");
 	
 	gl->UseProgram(shader.Object());
@@ -167,17 +180,26 @@ void SpriteShader::Init()
 
 
 
-void SpriteShader::Draw(const Sprite *sprite, const Point &position, float zoom, int swizzle)
+void SpriteShader::Draw(const Sprite *sprite, const Point &position, float zoom, int swizzle, float frame)
 {
 	if(!sprite)
 		return;
 	
-	float pos[2] = {
-		static_cast<float>(position.X()), static_cast<float>(position.Y())};
-	float trans[4] = {sprite->Width() * zoom, 0.f, 0.f, sprite->Height() * zoom};
+	Item item;
+	item.texture = sprite->Texture();
+	item.frame = frame;
+	item.frameCount = sprite->Frames();
+	// Position.
+	item.position[0] = static_cast<float>(position.X());
+	item.position[1] = static_cast<float>(position.Y());
+	// Rotation (none) and scale.
+	item.transform[0] = sprite->Width() * zoom;
+	item.transform[3] = sprite->Height() * zoom;
+	// Swizzle.
+	item.swizzle = swizzle;
 	
 	Bind();
-	Add(sprite->Texture(), 0, pos, trans, swizzle, 1.f, 0.f);
+	Add(item);
 	Unbind();
 }
 
@@ -195,30 +217,30 @@ void SpriteShader::Bind()
 
 
 
-void SpriteShader::Add(uint32_t tex0, uint32_t tex1, const float position[2], const float transform[4], int swizzle, float clip, float fade, const float blur[2])
+void SpriteShader::Add(const Item &item, bool withBlur)
 {
 	gl->UniformMatrix2fv(transformI, 1, false, transform);
 	gl->Uniform2fv(positionI, 1, position);
 	gl->BindTexture(GL::TEXTURE_2D, tex0);
-	
-	if(fade && tex1)
-	{
+
+	gl->Uniform1f(frameI, item.frame);
+	gl->Uniform1f(frameCountI, item.frameCount);
 		gl->ActiveTexture(GL::TEXTURE1);
 		gl->BindTexture(GL::TEXTURE_2D, tex1);
 		gl->ActiveTexture(GL::TEXTURE0);
-	}
-	else
-		fade = 0.f;
+	gl->Uniform2fv(blurI, 1, withBlur ? item.blur : UNBLURRED);
+	// Clipping has the opposite sense in the shader.
+	gl->Uniform1f(clipI, 1.f - item.clip);
+	gl->Uniform1f(alphaI, item.alpha);
 	
+	// Bounds check for the swizzle value:
+	int swizzle = (static_cast<size_t>(item.swizzle) >= SWIZZLE.size() ? 0 : item.swizzle);
 	// Set the color swizzle.
 	gl->UniformMatrix4fv(texmatrixI, 1, GL::FALSE, &SWIZZLE[swizzle][0][0]);
 	
-	// Set the clipping.
 	gl->Uniform1f(clipI, 1.f - clip);
 	gl->Uniform1f(fadeI, fade);
-	const float noBlur[2] = {0.f, 0.f};
 	gl->Uniform2fv(blurI, 1, blur ? blur : noBlur);
-	
 	gl->DrawArrays(GL::TRIANGLE_STRIP, 0, 4);
 }
 

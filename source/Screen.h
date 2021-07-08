@@ -24,6 +24,9 @@ class Screen {
 public:
 	static void SetRaw(int width, int height);
 	
+	// Zoom level as specified by the user.
+	static int UserZoom();
+	// Effective zoom level, as restricted by the current resolution / window size.
 	static int Zoom();
 	static void SetZoom(int percent);
 	
@@ -32,6 +35,7 @@ public:
 	// This is true if the screen is high DPI, or if the zoom is above 100%.
 	static bool IsHighResolution();
 	
+	static Point Dimensions();
 	static int Width();
 	static int Height();
 	

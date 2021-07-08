@@ -25,6 +25,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 #include <set>
 
 using namespace std;
@@ -39,10 +40,12 @@ MapOutfitterPanel::MapOutfitterPanel(PlayerInfo &player)
 
 
 
-MapOutfitterPanel::MapOutfitterPanel(const MapPanel &panel)
+MapOutfitterPanel::MapOutfitterPanel(const MapPanel &panel, bool onlyHere)
 	: MapSalesPanel(panel, true)
 {
 	Init();
+	onlyShowSoldHere = onlyHere;
+	UpdateCache();
 }
 
 
@@ -75,6 +78,22 @@ const ItemInfoDisplay &MapOutfitterPanel::CompareInfo() const
 
 
 
+const string &MapOutfitterPanel::KeyLabel(int index) const
+{
+	static const string MINE = "Mine this here";
+	if(index == 2 && selected && selected->Get("installable") < 0)
+		return MINE;
+	
+	static const string LABEL[3] = {
+		"Has no outfitter",
+		"Has outfitter",
+		"Sells this outfit"
+	};
+	return LABEL[index];
+}
+
+
+
 void MapOutfitterPanel::Select(int index)
 {
 	if(index < 0 || index >= static_cast<int>(list.size()))
@@ -82,8 +101,9 @@ void MapOutfitterPanel::Select(int index)
 	else
 	{
 		selected = list[index];
-		selectedInfo.Update(*selected);
+		selectedInfo.Update(*selected, player);
 	}
+	UpdateCache();
 }
 
 
@@ -95,27 +115,41 @@ void MapOutfitterPanel::Compare(int index)
 	else
 	{
 		compare = list[index];
-		compareInfo.Update(*compare);
+		compareInfo.Update(*compare, player);
 	}
 }
 
 
 
-bool MapOutfitterPanel::HasAny(const Planet *planet) const
+double MapOutfitterPanel::SystemValue(const System *system) const
 {
-	return !planet->Outfitter().empty();
+	if(!system)
+		return numeric_limits<double>::quiet_NaN();
+	
+	auto it = player.Harvested().lower_bound(pair<const System *, const Outfit *>(system, nullptr));
+	for( ; it != player.Harvested().end() && it->first == system; ++it)
+		if(it->second == selected)
+			return 1.;
+	
+	if(!system->IsInhabited(player.Flagship()))
+		return numeric_limits<double>::quiet_NaN();
+	
+	double value = -.5;
+	for(const StellarObject &object : system->Objects())
+		if(object.GetPlanet())
+		{
+			const auto &outfitter = object.GetPlanet()->Outfitter();
+			if(outfitter.Has(selected))
+				return 1.;
+			if(!outfitter.empty())
+				value = 0.;
+		}
+	return value;
 }
 
 
 
-bool MapOutfitterPanel::HasThis(const Planet *planet) const
-{
-	return planet->Outfitter().Has(selected);
-}
-
-
-
-int MapOutfitterPanel::FindItem(const std::string &text) const
+int MapOutfitterPanel::FindItem(const string &text) const
 {
 	int bestIndex = 9999;
 	int bestItem = -1;
@@ -135,7 +169,7 @@ int MapOutfitterPanel::FindItem(const std::string &text) const
 
 
 
-void MapOutfitterPanel::DrawItems() const
+void MapOutfitterPanel::DrawItems()
 {
 	list.clear();
 	Point corner = Screen::TopLeft() + Point(0, scroll);
@@ -151,20 +185,25 @@ void MapOutfitterPanel::DrawItems() const
 		
 		for(const Outfit *outfit : it->second)
 		{
-			string price = Format::Number(outfit->Cost()) + " credits";
+			string price = Format::Credits(outfit->Cost()) + " credits";
 			
-			double space = -outfit->Get("outfit space");
-			string info = Format::Number(space);
-			info += (abs(space) == 1. ? " ton" : " tons");
-			if(space && -outfit->Get("weapon capacity") == space)
-				info += " of weapon space";
-			else if(space && -outfit->Get("engine capacity") == space)
-				info += " of engine space";
+			string info;
+			if(outfit->Get("installable") < 0.)
+				info = "(Mined from asteroids)";
 			else
-				info += " of outfit space";
+			{
+				double space = -outfit->Get("outfit space");
+				info = Format::Number(space) + (abs(space) == 1. ? " ton" : " tons");
+				if(space && -outfit->Get("weapon capacity") == space)
+					info += " of weapon space";
+				else if(space && -outfit->Get("engine capacity") == space)
+					info += " of engine space";
+				else
+					info += " of outfit space";
+			}
 			
 			bool isForSale = true;
-			if(selectedSystem)
+			if(selectedSystem && player.HasVisited(selectedSystem))
 			{
 				isForSale = false;
 				for(const StellarObject &object : selectedSystem->Objects())
@@ -174,6 +213,8 @@ void MapOutfitterPanel::DrawItems() const
 						break;
 					}
 			}
+			if(!isForSale && onlyShowSoldHere)
+				continue;
 			
 			Draw(corner, outfit->Thumbnail(), isForSale, outfit == selected,
 				outfit->Name(), price, info);
@@ -197,6 +238,12 @@ void MapOutfitterPanel::Init()
 					catalog[outfit->Category()].push_back(outfit);
 					seen.insert(outfit);
 				}
+	for(const auto &it : player.Harvested())
+		if(!seen.count(it.second))
+		{
+			catalog[it.second->Category()].push_back(it.second);
+			seen.insert(it.second);
+		}
 	
 	for(auto &it : catalog)
 		sort(it.second.begin(), it.second.end(),

@@ -1,4 +1,4 @@
-/* SavedGame.h
+/* SavedGame.cpp
 Copyright (c) 2014 by Michael Zahniser
 
 Endless Sky is free software: you can redistribute it and/or modify it under the
@@ -19,6 +19,13 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include "SpriteSet.h"
 
 using namespace std;
+
+
+
+SavedGame::SavedGame(const string &path)
+{
+	Load(path);
+}
 
 
 
@@ -44,7 +51,7 @@ void SavedGame::Load(const string &path)
 			for(const DataNode &child : node)
 				if(child.Token(0) == "credits" && child.Size() >= 2)
 				{
-					credits = Format::Number(child.Value(1));
+					credits = Format::Credits(child.Value(1));
 					break;
 				}
 		}

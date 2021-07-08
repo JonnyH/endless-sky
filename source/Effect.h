@@ -13,9 +13,7 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #ifndef EFFECT_H_
 #define EFFECT_H_
 
-#include "Angle.h"
-#include "Animation.h"
-#include "Point.h"
+#include "Body.h"
 
 #include <string>
 
@@ -24,50 +22,45 @@ class Sound;
 
 
 
-// Class representing a graphic such as an explosion which is drawn for effect but
-// has no impact on any other objects in the game.
-class Effect {
+// Class representing the template for a visual effect such as an explosion,
+// which is drawn for effect but has no impact on any other objects in the
+// game. Because this class is more heavyweight than it needs to be, actual
+// visual effects when they are placed use the Visual class, based on the
+// template provided by an Effect.
+class Effect : public Body {
 public:
-	Effect();
+	/* Functions provided by the Body base class:
+	Frame GetFrame(int step = -1) const;
+	const Point &Position() const;
+	const Point &Velocity() const;
+	const Angle &Facing() const;
+	Point Unit() const;
+	double Zoom() const;
+	*/
 	
 	const std::string &Name() const;
 	
 	void Load(const DataNode &node);
-	// If creating a new effect, the animation and lifetime are copied,
-	// but position, velocity, and angle are specific to this new effect.
-	void Place(Point pos, Point vel, Angle angle, Point hitVelocity = Point());
-	
-	// This returns false if it is time to delete this effect.
-	bool Move();
-	
-	// Get the projectiles characteristics, for drawing.
-	const Animation &GetSprite() const;
-	const Point &Position() const;
-	const Point &Velocity() const;
-	Point Unit() const;
 	
 	
 private:
 	std::string name;
 	
-	Animation animation;
-	const Sound *sound;
-	
-	Point position;
-	Point velocity;
-	Angle angle;
-	Angle spin;
+	const Sound *sound = nullptr;
 	
 	// Parameters used for randomizing spin and velocity. The random angle is
 	// added to the parent angle, and then a random velocity in that direction
 	// is added to the parent velocity.
-	double velocityScale;
-	double randomVelocity;
-	double randomAngle;
-	double randomSpin;
-	double randomFrameRate;
+	double velocityScale = 1.;
+	double randomVelocity = 0.;
+	double randomAngle = 0.;
+	double randomSpin = 0.;
+	double randomFrameRate = 0.;
 	
-	int lifetime;
+	int lifetime = 0;
+	
+	// Allow the Visual class to access all these private members.
+	friend class Visual;
 };
 
 

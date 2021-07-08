@@ -17,15 +17,17 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include "Point.h"
 #include "Screen.h"
 
+#include <algorithm>
 #include <cmath>
+#include <cstdlib>
 #include <cstring>
 
 using namespace std;
 
 namespace {
-	static bool showUnderlines = false;
+	bool showUnderlines = false;
 	
-	static const char *vertexCode =
+	const char *vertexCode =
 		// "scale" maps pixel coordinates to GL coordinates (-1 to 1).
 		"uniform vec2 scale;\n"
 		// The (x, y) coordinates of the top left corner of the glyph.
@@ -48,7 +50,7 @@ namespace {
 		"  gl_Position = vec4((aspect * vert.x + position.x) * scale.x, (vert.y + position.y) * scale.y, 0, 1);\n"
 		"}\n";
 	
-	static const char *fragmentCode =
+	const char *fragmentCode =
 		// The user must supply a texture and a color (white by default).
 		"uniform sampler2D tex;\n"
 		"uniform vec4 color;\n"
@@ -61,7 +63,7 @@ namespace {
 		"  gl_FragColor = texture2D(tex, texCoord).a * color;\n"
 		"}\n";
 	
-	static const int KERN = 2;
+	const int KERN = 2;
 }
 
 
@@ -85,15 +87,13 @@ Font::Font(const string &imagePath)
 void Font::Load(const string &imagePath)
 {
 	// Load the texture.
-	ImageBuffer *image = ImageBuffer::Read(imagePath);
-	if(!image)
+	ImageBuffer image;
+	if(!image.Read(imagePath))
 		return;
 	
 	LoadTexture(image);
 	CalculateAdvances(image);
-	SetUpShader(image->Width() / GLYPHS, image->Height());
-	
-	delete image;
+	SetUpShader(image.Width() / GLYPHS, image.Height());
 }
 
 
@@ -105,7 +105,7 @@ void Font::Draw(const string &str, const Point &point, const Color &color) const
 
 
 
-void Font::DrawAliased(const std::string &str, double x, double y, const Color &color) const
+void Font::DrawAliased(const string &str, double x, double y, const Color &color) const
 {
 	gl->UseProgram(shader.Object());
 	gl->ActiveTexture(GL::TEXTURE0);
@@ -210,6 +210,114 @@ int Font::Width(const char *str, char after) const
 
 
 
+string Font::Truncate(const string &str, int width) const
+{
+	int prevChars = str.size();
+	int prevWidth = Width(str);
+	if(prevWidth <= width)
+		return str;
+	
+	width -= Width("...");
+	// As a safety against infinite loops (even though they won't be possible if
+	// this implementation is correct) limit the number of loops to the number
+	// of characters in the string.
+	for(size_t i = 0; i < str.length(); ++i)
+	{
+		// Loop until the previous width we tried was too long and this one is
+		// too short, or vice versa. Each time, the next string length we try is
+		// interpolated from the previous width.
+		int nextChars = (prevChars * width) / prevWidth;
+		bool isSame = (nextChars == prevChars);
+		bool prevWorks = (prevWidth <= width);
+		nextChars += (prevWorks ? isSame : -isSame);
+		
+		int nextWidth = Width(str.substr(0, nextChars), '.');
+		bool nextWorks = (nextWidth <= width);
+		if(prevWorks != nextWorks && abs(nextChars - prevChars) == 1)
+			return str.substr(0, min(prevChars, nextChars)) + "...";
+		
+		prevChars = nextChars;
+		prevWidth = nextWidth;
+	}
+	return str;
+}
+
+
+
+string Font::TruncateFront(const string &str, int width) const
+{
+	int prevChars = str.size();
+	int prevWidth = Width(str);
+	if(prevWidth <= width)
+		return str;
+	
+	width -= Width("...");
+	// As a safety against infinite loops (even though they won't be possible if
+	// this implementation is correct) limit the number of loops to the number
+	// of characters in the string.
+	for(size_t i = 0; i < str.length(); ++i)
+	{
+		// Loop until the previous width we tried was too long and this one is
+		// too short, or vice versa. Each time, the next string length we try is
+		// interpolated from the previous width.
+		int nextChars = (prevChars * width) / prevWidth;
+		bool isSame = (nextChars == prevChars);
+		bool prevWorks = (prevWidth <= width);
+		nextChars += (prevWorks ? isSame : -isSame);
+		
+		int nextWidth = Width(str.substr(str.size() - nextChars));
+		bool nextWorks = (nextWidth <= width);
+		if(prevWorks != nextWorks && abs(nextChars - prevChars) == 1)
+			return "..." + str.substr(str.size() - min(prevChars, nextChars));
+		
+		prevChars = nextChars;
+		prevWidth = nextWidth;
+	}
+	return str;
+}
+
+
+
+string Font::TruncateMiddle(const string &str, int width) const
+{
+	int prevChars = str.size();
+	int prevWidth = Width(str);
+	if(prevWidth <= width)
+		return str;
+	
+	width -= Width("...");
+	// As a safety against infinite loops (even though they won't be possible if
+	// this implementation is correct), limit the number of loops to the number
+	// of characters in the string.
+	for(size_t i = 0; i < str.length(); ++i)
+	{
+		// Loop until the previous width we tried was too long and this one is
+		// too short, or vice versa. Each time, the next string length we try is
+		// interpolated from the previous width.
+		int nextChars = (prevChars * width) / prevWidth;
+		bool isSame = (nextChars == prevChars);
+		bool prevWorks = (prevWidth <= width);
+		nextChars += (prevWorks ? isSame : -isSame);
+		
+		int leftChars = nextChars / 2;
+		int rightChars = nextChars - leftChars;
+		int nextWidth = Width(str.substr(0, leftChars) + str.substr(str.size() - rightChars));
+		bool nextWorks = (nextWidth <= width);
+		if(prevWorks != nextWorks && abs(nextChars - prevChars) == 1)
+		{
+			leftChars = min(prevChars, nextChars) / 2;
+			rightChars = min(prevChars, nextChars) - leftChars;
+			return str.substr(0, leftChars) + "..." + str.substr(str.size() - rightChars);
+		}
+		
+		prevChars = nextChars;
+		prevWidth = nextWidth;
+	}
+	return str;
+}
+
+
+
 int Font::Height() const
 {
 	return height;
@@ -244,7 +352,7 @@ int Font::Glyph(char c, bool isAfterSpace)
 
 
 
-void Font::LoadTexture(ImageBuffer *image)
+void Font::LoadTexture(ImageBuffer &image)
 {
 	gl->GenTextures(1, &texture);
 	gl->BindTexture(GL::TEXTURE_2D, texture);
@@ -260,14 +368,14 @@ void Font::LoadTexture(ImageBuffer *image)
 
 
 
-void Font::CalculateAdvances(ImageBuffer *image)
+void Font::CalculateAdvances(ImageBuffer &image)
 {
 	// Get the format and size of the surface.
-	int width = image->Width() / GLYPHS;
-	height = image->Height();
+	int width = image.Width() / GLYPHS;
+	height = image.Height();
 	unsigned mask = 0xFF000000;
 	unsigned half = 0xC0000000;
-	int pitch = image->Width();
+	int pitch = image.Width();
 	
 	// advance[previous * GLYPHS + next] is the x advance for each glyph pair.
 	// There is no advance if the previous value is 0, i.e. we are at the very
@@ -278,7 +386,7 @@ void Font::CalculateAdvances(ImageBuffer *image)
 		{
 			int maxD = 0;
 			int glyphWidth = 0;
-			uint32_t *begin = reinterpret_cast<uint32_t *>(image->Pixels());
+			uint32_t *begin = image.Pixels();
 			for(int y = 0; y < height; ++y)
 			{
 				// Find the last non-empty pixel in the previous glyph.
@@ -329,6 +437,8 @@ void Font::SetUpShader(float glyphW, float glyphH)
 	
 	shader = Shader(vertexCode, fragmentCode);
 	gl->UseProgram(shader.Object());
+	gl->Uniform1i(shader.Uniform("tex"), 0);
+	gl->UseProgram(0);
 	
 	// Create the VAO and VBO.
 	gl->OES_vertex_array_object.GenVertexArrays(1, &vao);
@@ -354,13 +464,12 @@ void Font::SetUpShader(float glyphW, float glyphH)
 	gl->VertexAttribPointer(shader.Attrib("corner"), 2, GL::FLOAT, GL::FALSE,
 		4 * sizeof(GL::GLfloat), (const GL::GLvoid*)(2 * sizeof(GL::GLfloat)));
 	
+	
 	// We must update the screen size next time we draw.
 	screenWidth = 0;
 	screenHeight = 0;
 	
-	// The texture always comes from texture unit 0.
 	gl->Uniform1i(shader.Uniform("tex"), 0);
-
 	colorI = shader.Uniform("color");
 	scaleI = shader.Uniform("scale");
 	glyphI = shader.Uniform("glyph");

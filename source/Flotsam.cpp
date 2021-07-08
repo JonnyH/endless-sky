@@ -19,8 +19,15 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include "Random.h"
 #include "Ship.h"
 #include "SpriteSet.h"
+#include "Visual.h"
+
+#include <cmath>
 
 using namespace std;
+
+
+
+const int Flotsam::TONS_PER_BOX = 5;
 
 
 
@@ -29,6 +36,9 @@ Flotsam::Flotsam(const string &commodity, int count)
 	: commodity(commodity), count(count)
 {
 	lifetime = Random::Int(300) + 360;
+	// Scale lifetime in proportion to the expected amount per box.
+	if(count != TONS_PER_BOX)
+		lifetime = sqrt(count * (1. / TONS_PER_BOX)) * lifetime;
 }
 
 
@@ -49,62 +59,57 @@ Flotsam::Flotsam(const Outfit *outfit, int count)
 void Flotsam::Place(const Ship &source)
 {
 	this->source = &source;
+	Place(source, Angle::Random().Unit() * (2. * Random::Real()) - 2. * source.Unit());
+}
+
+
+
+// Place flotsam coming from something other than a ship. Optionally specify
+// the maximum relative velocity, or the exact relative velocity as a vector.
+void Flotsam::Place(const Body &source, double maxVelocity)
+{
+	Place(source, Angle::Random().Unit() * (maxVelocity * Random::Real()));
+}
+
+
+
+void Flotsam::Place(const Body &source, const Point &dv)
+{
 	position = source.Position();
-	velocity = source.Velocity() + Angle::Random().Unit() * (2. * Random::Real()) - 2. * source.Unit();
-	facing = Angle::Random();
+	velocity = source.Velocity() + dv;
+	angle = Angle::Random();
 	spin = Angle::Random(10.);
-	animation = Animation(SpriteSet::Get("effect/box"), 4. * (1. + Random::Real()));
-}
-
-
-
-// Get the animation for this object.
-const Animation &Flotsam::GetSprite() const
-{
-	return animation;
-}
-
-
-
-const Point &Flotsam::Position() const
-{
-	return position;
-}
-
-
-
-const Point &Flotsam::Velocity() const
-{
-	return velocity;
-}
-
-
-
-const Angle &Flotsam::Facing() const
-{
-	return facing;
+	
+	// Special case: allow a harvested outfit item to define its flotsam sprite
+	// using the field that usually defines a secondary weapon's icon.
+	if(outfit && outfit->FlotsamSprite())
+		SetSprite(outfit->FlotsamSprite());
+	else
+		SetSprite(SpriteSet::Get("effect/box"));
+	SetFrameRate(4. * (1. + Random::Real()));
 }
 
 
 
 // Move the object one time-step forward.
-bool Flotsam::Move(list<Effect> &effects)
+void Flotsam::Move(vector<Visual> &visuals)
 {
 	position += velocity;
-	facing += spin;
+	angle += spin;
 	--lifetime;
 	if(lifetime > 0)
-		return true;
+		return;
 	
 	// This flotsam has reached the end of its life. 
-	const Effect *effect = GameData::Effects().Get("smoke");
-	effects.push_back(*effect);
-	
-	Angle angle = Angle::Random();
-	velocity += angle.Unit() * Random::Real();
-	effects.back().Place(position, velocity, angle);
-	
-	return false;
+	const Effect *effect = GameData::Effects().Get("flotsam death");
+	for(int i = 0; i < 3; ++i)
+	{
+		Angle smokeAngle = Angle::Random();
+		velocity += smokeAngle.Unit() * Random::Real();
+		
+		visuals.emplace_back(*effect, position, velocity, smokeAngle);
+	}
+	MarkForRemoval();
 }
 
 
@@ -141,7 +146,29 @@ int Flotsam::Count() const
 
 // This is how big one "unit" of the flotsam is (in tons). If a ship has
 // less than this amount of space, it can't pick up anything here.
-int Flotsam::UnitSize() const
+double Flotsam::UnitSize() const
 {
-	return outfit ? outfit->Get("mass") : 1;
+	return outfit ? outfit->Mass() : 1.;
+}
+
+
+
+// Transfer contents to the collector ship. The flotsam velocity is
+// stabilized in proportion to the amount being transferred.
+int Flotsam::TransferTo(Ship *collector)
+{
+	int amount = outfit ?
+		collector->Cargo().Add(outfit, count) :
+		collector->Cargo().Add(commodity, count);
+	
+	Point relative = collector->Velocity() - velocity;
+	double proportion = static_cast<double>(amount) / count;
+	velocity += relative * proportion;
+	
+	count -= amount;
+	// If this flotsam is now empty, remove it.
+	if(count <= 0)
+		MarkForRemoval();
+	
+	return amount;
 }

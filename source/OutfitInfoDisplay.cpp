@@ -12,60 +12,96 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 
 #include "OutfitInfoDisplay.h"
 
-#include "Color.h"
+#include "Depreciation.h"
 #include "Format.h"
 #include "Outfit.h"
+#include "PlayerInfo.h"
 
 #include <algorithm>
+#include <cmath>
 #include <map>
 #include <set>
+#include <sstream>
 
 using namespace std;
 
 namespace {
-	static const set<string> ATTRIBUTES_TO_SCALE = {
-		"afterburner energy",
-		"afterburner fuel",
-		"afterburner heat",
-		"cloaking energy",
-		"cloaking fuel",
-		"cooling",
-		"energy generation",
-		"heat generation",
-		"hull repair rate",
-		"hull energy",
-		"hull heat",
-		"reverse thrusting energy",
-		"reverse thrusting heat",
-		"shield generation",
-		"shield energy",
-		"shield heat",
-		"thrusting energy",
-		"thrusting heat",
-		"turn",
-		"turning energy",
-		"turning heat"
+	const vector<pair<double, string>> UNIT_PAIRS = {
+		make_pair(60., ""),
+		make_pair(60. * 60., ""),
+		make_pair(60. * 100., ""),
+		make_pair(100., "%"),
+		make_pair(1. / 60., "")
 	};
 	
-	static const set<string> BOOLEAN_ATTRIBUTES = {
-		"unplunderable"
+	const map<string, int> SCALE = {
+		{"active cooling", 0},
+		{"afterburner energy", 0},
+		{"afterburner fuel", 0},
+		{"afterburner heat", 0},
+		{"cloak", 0},
+		{"cloaking energy", 0},
+		{"cloaking fuel", 0},
+		{"cloaking heat", 0},
+		{"cooling", 0},
+		{"cooling energy", 0},
+		{"energy consumption", 0},
+		{"energy generation", 0},
+		{"fuel consumption", 0},
+		{"fuel energy", 0},
+		{"fuel generation", 0},
+		{"fuel heat", 0},
+		{"heat generation", 0},
+		{"heat dissipation", 0},
+		{"hull repair rate", 0},
+		{"hull energy", 0},
+		{"hull fuel", 0},
+		{"hull heat", 0},
+		{"jump speed", 0},
+		{"reverse thrusting energy", 0},
+		{"reverse thrusting heat", 0},
+		{"shield generation", 0},
+		{"shield energy", 0},
+		{"shield fuel", 0},
+		{"shield heat", 0},
+		{"solar collection", 0},
+		{"thrusting energy", 0},
+		{"thrusting heat", 0},
+		{"turn", 0},
+		{"turning energy", 0},
+		{"turning heat", 0},
+		
+		{"thrust", 1},
+		{"reverse thrust", 1},
+		{"afterburner thrust", 1},
+		
+		{"ion resistance", 2},
+		{"disruption resistance", 2},
+		{"slowing resistance", 2}
+	};
+	
+	const map<string, string> BOOLEAN_ATTRIBUTES = {
+		{"unplunderable", "This outfit cannot be plundered."},
+		{"installable", "This is not an installable item."},
+		{"hyperdrive", "Allows you to make hyperjumps."},
+		{"jump drive", "Lets you jump to any nearby system."}
 	};
 }
 
 
 
-OutfitInfoDisplay::OutfitInfoDisplay(const Outfit &outfit)
+OutfitInfoDisplay::OutfitInfoDisplay(const Outfit &outfit, const PlayerInfo &player, bool canSell)
 {
-	Update(outfit);
+	Update(outfit, player, canSell);
 }
 
 
 
 // Call this every time the ship changes.
-void OutfitInfoDisplay::Update(const Outfit &outfit)
+void OutfitInfoDisplay::Update(const Outfit &outfit, const PlayerInfo &player, bool canSell)
 {
-	UpdateDescription(outfit.Description());
-	UpdateRequirements(outfit);
+	UpdateDescription(outfit.Description(), outfit.Licenses(), false);
+	UpdateRequirements(outfit, player, canSell);
 	UpdateAttributes(outfit);
 	
 	maximumHeight = max(descriptionHeight, max(requirementsHeight, attributesHeight));
@@ -87,35 +123,76 @@ void OutfitInfoDisplay::DrawRequirements(const Point &topLeft) const
 
 
 
-void OutfitInfoDisplay::UpdateRequirements(const Outfit &outfit)
+void OutfitInfoDisplay::UpdateRequirements(const Outfit &outfit, const PlayerInfo &player, bool canSell)
 {
 	requirementLabels.clear();
 	requirementValues.clear();
 	requirementsHeight = 20;
 	
-	requirementLabels.push_back("cost:");
-	requirementValues.push_back(Format::Number(outfit.Cost()));
+	int day = player.GetDate().DaysSinceEpoch();
+	int64_t cost = outfit.Cost();
+	int64_t buyValue = player.StockDepreciation().Value(&outfit, day);
+	int64_t sellValue = player.FleetDepreciation().Value(&outfit, day);
+	
+	if(buyValue == cost)
+		requirementLabels.push_back("cost:");
+	else
+	{
+		ostringstream out;
+		out << "cost (" << (100 * buyValue) / cost << "%):";
+		requirementLabels.push_back(out.str());
+	}
+	requirementValues.push_back(Format::Credits(buyValue));
 	requirementsHeight += 20;
 	
-	static const string names[] = {
+	if(canSell && sellValue != buyValue)
+	{
+		if(sellValue == cost)
+			requirementLabels.push_back("sells for:");
+		else
+		{
+			ostringstream out;
+			out << "sells for (" << (100 * sellValue) / cost << "%):";
+			requirementLabels.push_back(out.str());
+		}
+		requirementValues.push_back(Format::Credits(sellValue));
+		requirementsHeight += 20;
+	}
+	
+	if(outfit.Mass())
+	{
+		requirementLabels.emplace_back("mass:");
+		requirementValues.emplace_back(Format::Number(outfit.Mass()));
+		requirementsHeight += 20;
+	}
+	
+	bool hasContent = true;
+	static const vector<string> NAMES = {
+		"", "",
 		"outfit space needed:", "outfit space",
 		"weapon capacity needed:", "weapon capacity",
 		"engine capacity needed:", "engine capacity",
+		"", "",
 		"gun ports needed:", "gun ports",
 		"turret mounts needed:", "turret mounts"
 	};
-	static const int NAMES =  sizeof(names) / sizeof(names[0]);
-	for(int i = 0; i + 1 < NAMES; i += 2)
-		if(outfit.Get(names[i + 1]))
+	for(unsigned i = 0; i + 1 < NAMES.size(); i += 2)
+	{
+		if(NAMES[i].empty() && hasContent)
 		{
-			requirementLabels.push_back(string());
-			requirementValues.push_back(string());
+			requirementLabels.emplace_back();
+			requirementValues.emplace_back();
 			requirementsHeight += 10;
-		
-			requirementLabels.push_back(names[i]);
-			requirementValues.push_back(Format::Number(-outfit.Get(names[i + 1])));
-			requirementsHeight += 20;
+			hasContent = false;
 		}
+		else if(outfit.Get(NAMES[i + 1]))
+		{
+			requirementLabels.push_back(NAMES[i]);
+			requirementValues.push_back(Format::Number(-outfit.Get(NAMES[i + 1])));
+			requirementsHeight += 20;
+			hasContent = true;
+		}
+	}
 }
 
 
@@ -126,201 +203,186 @@ void OutfitInfoDisplay::UpdateAttributes(const Outfit &outfit)
 	attributeValues.clear();
 	attributesHeight = 20;
 	
-	map<string, map<string, int>> listing;
-	for(const auto &it : outfit.Attributes())
+	bool hasNormalAttributes = false;
+	for(const pair<const char *, double> &it : outfit.Attributes())
 	{
-		if(it.first == "outfit space"
-				|| it.first == "weapon capacity" || it.first == "engine capacity"
-				|| it.first == "gun ports" || it.first == "turret mounts")
+		static const set<string> SKIP = {
+			"outfit space", "weapon capacity", "engine capacity", "gun ports", "turret mounts"
+		};
+		if(SKIP.count(it.first))
 			continue;
 		
-		string value;
-		double scale = 1.;
-		if(it.first == "thrust" || it.first == "reverse thrust" || it.first == "afterburner thrust")
-			scale = 60. * 60.;
-		else if(ATTRIBUTES_TO_SCALE.count(it.first))
-			scale = 60.;
+		auto sit = SCALE.find(it.first);
+		double scale = (sit == SCALE.end() ? 1. : UNIT_PAIRS[sit->second].first);
+		string units = (sit == SCALE.end() ? "" : UNIT_PAIRS[sit->second].second);
 		
-		if(BOOLEAN_ATTRIBUTES.count(it.first)) 
+		auto bit = BOOLEAN_ATTRIBUTES.find(it.first);
+		if(bit != BOOLEAN_ATTRIBUTES.end()) 
 		{
-			attributeLabels.push_back("This outfit is " + it.first + ".");
-			attributeValues.push_back(" ");
+			attributeLabels.emplace_back(bit->second);
+			attributeValues.emplace_back(" ");
 			attributesHeight += 20;
 		}
 		else
 		{
-			attributeLabels.push_back(it.first + ':');
-			attributeValues.push_back(Format::Number(it.second * scale));
+			attributeLabels.emplace_back(static_cast<string>(it.first) + ":");
+			attributeValues.emplace_back(Format::Number(it.second * scale) + units);
 			attributesHeight += 20;
 		}
+		hasNormalAttributes = true;
 	}
 	
 	if(!outfit.IsWeapon())
 		return;
 	
-	attributeLabels.push_back(string());
-	attributeValues.push_back(string());
-	attributesHeight += 10;
+	// Insert padding if any normal attributes were listed above.
+	if(hasNormalAttributes)
+	{
+		attributeLabels.emplace_back();
+		attributeValues.emplace_back();
+		attributesHeight += 10;
+	}
 	
 	if(outfit.Ammo())
 	{
-		attributeLabels.push_back("ammo:");
-		attributeValues.push_back(outfit.Ammo()->Name());
+		attributeLabels.emplace_back("ammo:");
+		attributeValues.emplace_back(outfit.Ammo()->Name());
 		attributesHeight += 20;
 	}
 	
-	attributeLabels.push_back("range:");
-	attributeValues.push_back(Format::Number(outfit.Range()));
+	attributeLabels.emplace_back("range:");
+	attributeValues.emplace_back(Format::Number(outfit.Range()));
 	attributesHeight += 20;
 	
-	if(outfit.ShieldDamage() && outfit.Reload())
-	{
-		attributeLabels.push_back("shield damage / second:");
-		attributeValues.push_back(Format::Number(60. * outfit.ShieldDamage() / outfit.Reload()));
-		attributesHeight += 20;
-	}
-	
-	if(outfit.HullDamage() && outfit.Reload())
-	{
-		attributeLabels.push_back("hull damage / second:");
-		attributeValues.push_back(Format::Number(60. * outfit.HullDamage() / outfit.Reload()));
-		attributesHeight += 20;
-	}
-	
-	if(outfit.HeatDamage() && outfit.Reload())
-	{
-		attributeLabels.push_back("heat damage / second:");
-		attributeValues.push_back(Format::Number(60. * outfit.HeatDamage() / outfit.Reload()));
-		attributesHeight += 20;
-	}
-	
-	if(outfit.IonDamage() && outfit.Reload())
-	{
-		attributeLabels.push_back("ion damage / second:");
-		attributeValues.push_back(Format::Number(6000. * outfit.IonDamage() / outfit.Reload()));
-		attributesHeight += 20;
-	}
-	
-	if(outfit.SlowingDamage() && outfit.Reload())
-	{
-		attributeLabels.push_back("slowing damage / second:");
-		attributeValues.push_back(Format::Number(6000. * outfit.SlowingDamage() / outfit.Reload()));
-		attributesHeight += 20;
-	}
-	
-	if(outfit.DisruptionDamage() && outfit.Reload())
-	{
-		attributeLabels.push_back("disruption damage / second:");
-		attributeValues.push_back(Format::Number(6000. * outfit.DisruptionDamage() / outfit.Reload()));
-		attributesHeight += 20;
-	}
-	
-	if(outfit.FiringEnergy() && outfit.Reload())
-	{
-		attributeLabels.push_back("firing energy / second:");
-		attributeValues.push_back(Format::Number(60. * outfit.FiringEnergy() / outfit.Reload()));
-		attributesHeight += 20;
-	}
-	
-	if(outfit.FiringHeat() && outfit.Reload())
-	{
-		attributeLabels.push_back("firing heat / second:");
-		attributeValues.push_back(Format::Number(60. * outfit.FiringHeat() / outfit.Reload()));
-		attributesHeight += 20;
-	}
-	
-	if(outfit.FiringFuel() && outfit.Reload())
-	{
-		attributeLabels.push_back("firing fuel / second:");
-		attributeValues.push_back(Format::Number(60. * outfit.FiringFuel() / outfit.Reload()));
-		attributesHeight += 20;
-	}
-	
-	bool isContinuous = (outfit.Reload() <= 1);
-	attributeLabels.push_back("shots / second:");
-	if(isContinuous)
-		attributeValues.push_back("continuous");
-	else
-		attributeValues.push_back(Format::Number(60. / outfit.Reload()));
-	attributesHeight += 20;
-	
-	int homing = outfit.Homing();
-	if(homing)
-	{
-		static const string skill[] = {
-			"no",
-			"poor",
-			"fair",
-			"good",
-			"excellent"
-		};
-		attributeLabels.push_back("homing:");
-		attributeValues.push_back(skill[max(0, min(4, homing))]);
-		attributesHeight += 20;
-	}
-	static const string percentNames[] = {
-		"tracking:",
-		"optical tracking:",
-		"infrared tracking:",
-		"radar tracking:",
-		"piercing:"
+	static const vector<string> VALUE_NAMES = {
+		"shield damage",
+		"hull damage",
+		"fuel damage",
+		"heat damage",
+		"ion damage",
+		"slowing damage",
+		"disruption damage",
+		"firing energy",
+		"firing heat",
+		"firing fuel"
 	};
-	double percentValues[] = {
-		outfit.Tracking(),
-		outfit.OpticalTracking(),
-		outfit.InfraredTracking(),
-		outfit.RadarTracking(),
-		outfit.Piercing()
-	};
-	for(unsigned i = 0; i < sizeof(percentValues) / sizeof(percentValues[0]); ++i)
-		if(percentValues[i])
-		{
-			int percent = 100. * percentValues[i] + .5;
-			attributeLabels.push_back(percentNames[i]);
-			attributeValues.push_back(Format::Number(percent) + "%");
-			attributesHeight += 20;
-		}
 	
-	attributeLabels.push_back(string());
-	attributeValues.push_back(string());
-	attributesHeight += 10;
-	
-	static const string names[] = {
-		"shield damage / shot:",
-		"hull damage / shot:",
-		"heat damage / shot:",
-		"ion damage / shot:",
-		"slowing damage / shot:",
-		"disruption damage / shot:",
-		"firing energy / shot:",
-		"firing heat / shot:",
-		"firing fuel / shot:",
-		"inaccuracy:",
-		"blast radius:",
-		"missile strength:",
-		"anti-missile:",
-	};
-	double values[] = {
+	vector<double> values = {
 		outfit.ShieldDamage(),
 		outfit.HullDamage(),
+		outfit.FuelDamage(),
 		outfit.HeatDamage(),
 		outfit.IonDamage() * 100.,
 		outfit.SlowingDamage() * 100.,
 		outfit.DisruptionDamage() * 100.,
 		outfit.FiringEnergy(),
 		outfit.FiringHeat(),
-		outfit.FiringFuel(),
+		outfit.FiringFuel()
+	};
+	
+	// Add any per-second values to the table.
+	double reload = outfit.Reload();
+	if(reload)
+	{
+		static const string PER_SECOND = " / second:";
+		for(unsigned i = 0; i < values.size(); ++i)
+			if(values[i])
+			{
+				attributeLabels.emplace_back(VALUE_NAMES[i] + PER_SECOND);
+				attributeValues.emplace_back(Format::Number(60. * values[i] / reload));
+				attributesHeight += 20;
+			}
+	}
+	
+	bool isContinuous = (reload <= 1);
+	attributeLabels.emplace_back("shots / second:");
+	if(isContinuous)
+		attributeValues.emplace_back("continuous");
+	else
+		attributeValues.emplace_back(Format::Number(60. / reload));
+	attributesHeight += 20;
+	
+	double turretTurn = outfit.TurretTurn() * 60.;
+	if(turretTurn)
+	{
+		attributeLabels.emplace_back("turret turn rate:");
+		attributeValues.emplace_back(Format::Number(turretTurn));
+		attributesHeight += 20;
+	}
+	int homing = outfit.Homing();
+	if(homing)
+	{
+		static const string skill[] = {
+			"none",
+			"poor",
+			"fair",
+			"good",
+			"excellent"
+		};
+		attributeLabels.emplace_back("homing:");
+		attributeValues.push_back(skill[max(0, min(4, homing))]);
+		attributesHeight += 20;
+	}
+	static const vector<string> PERCENT_NAMES = {
+		"tracking:",
+		"optical tracking:",
+		"infrared tracking:",
+		"radar tracking:",
+		"piercing:"
+	};
+	vector<double> percentValues = {
+		outfit.Tracking(),
+		outfit.OpticalTracking(),
+		outfit.InfraredTracking(),
+		outfit.RadarTracking(),
+		outfit.Piercing()
+	};
+	for(unsigned i = 0; i < PERCENT_NAMES.size(); ++i)
+		if(percentValues[i])
+		{
+			int percent = lround(100. * percentValues[i]);
+			attributeLabels.push_back(PERCENT_NAMES[i]);
+			attributeValues.push_back(Format::Number(percent) + "%");
+			attributesHeight += 20;
+		}
+	
+	// Pad the table.
+	attributeLabels.emplace_back();
+	attributeValues.emplace_back();
+	attributesHeight += 10;
+	
+	// Add per-shot values to the table. If the weapon fires continuously,
+	// the values have already been added.
+	if(!isContinuous)
+	{
+		static const string PER_SHOT = " / shot:";
+		for(unsigned i = 0; i < VALUE_NAMES.size(); ++i)
+			if(values[i])
+			{
+				attributeLabels.emplace_back(VALUE_NAMES[i] + PER_SHOT);
+				attributeValues.emplace_back(Format::Number(values[i]));
+				attributesHeight += 20;
+			}
+	}
+	
+	static const vector<string> OTHER_NAMES = {
+		"inaccuracy:",
+		"blast radius:",
+		"missile strength:",
+		"anti-missile:"
+	};
+	vector<double> otherValues = {
 		outfit.Inaccuracy(),
 		outfit.BlastRadius(),
 		static_cast<double>(outfit.MissileStrength()),
 		static_cast<double>(outfit.AntiMissile())
 	};
-	static const int NAMES = sizeof(names) / sizeof(names[0]);
-	for(int i = (isContinuous ? 9 : 0); i < NAMES; ++i)
-		if(values[i])
+	
+	for(unsigned i = 0; i < OTHER_NAMES.size(); ++i)
+		if(otherValues[i])
 		{
-			attributeLabels.push_back(names[i]);
-			attributeValues.push_back(Format::Number(values[i]));
+			attributeLabels.emplace_back(OTHER_NAMES[i]);
+			attributeValues.emplace_back(Format::Number(otherValues[i]));
 			attributesHeight += 20;
 		}
 }

@@ -15,22 +15,30 @@ PARTICULAR PURPOSE.  See the GNU General Public License for more details.
 #include "DataFile.h"
 #include "DataNode.h"
 #include "DataWriter.h"
+#include "Format.h"
 
 #include <SDL2/SDL.h>
 
 #include <algorithm>
+#include <cmath>
 #include <map>
 
 using namespace std;
 
 namespace {
+	// These lookup tables make it possible to map a command to its description,
+	// the name of the key it is mapped to, or the SDL keycode it is mapped to.
 	map<Command, string> description;
 	map<Command, string> keyName;
 	map<int, Command> commandForKeycode;
 	map<Command, int> keycodeForCommand;
+	// Keep track of any keycodes that are mapped to multiple commands, in order
+	// to display a warning to the player.
 	map<int, int> keycodeCount;
 }
 
+// Command enumeration, including the descriptive strings that are used for the
+// commands both in the preferences panel and in the saved key settings.
 const Command Command::NONE(0, "");
 const Command Command::MENU(1uL << 0, "Show main menu");
 const Command Command::FORWARD(1uL << 1, "Forward thrust");
@@ -56,12 +64,26 @@ const Command Command::FULLSCREEN(1uL << 20, "Toggle fullscreen");
 const Command Command::FIGHT(1uL << 21, "Fleet: Fight my target");
 const Command Command::GATHER(1uL << 22, "Fleet: Gather around me");
 const Command Command::HOLD(1uL << 23, "Fleet: Hold position");
-const Command Command::WAIT(1uL << 24, "");
-const Command Command::STOP(1ul << 25, "");
+const Command Command::AMMO(1uL << 24, "Fleet: Toggle ammo usage");
+const Command Command::WAIT(1uL << 25, "");
+const Command Command::STOP(1ul << 26, "");
 
 
 
-// Assume SDL_Keycode is a signed int, so I don't need to include SDL.h.
+// In the given text, replace any instances of command names (in angle brackets)
+// with key names (in quotes).
+string Command::ReplaceNamesWithKeys(const string &text)
+{
+	map<string, string> subs;
+	for(const auto &it : description)
+		subs['<' + it.second + '>'] = '"' + keyName[it.first] + '"';
+	
+	return Format::Replace(text, subs);
+}
+
+
+
+// Create a command representing whatever is mapped to the given key code.
 Command::Command(int keycode)
 {
 	auto it = commandForKeycode.find(keycode);
@@ -78,7 +100,8 @@ void Command::ReadKeyboard()
 	const Uint8 *keyDown = SDL_GetKeyboardState(nullptr);
 	
 	// Each command can only have one keycode, but misconfigured settings can
-	// temporarily cause one keycode to be used for two commands.
+	// temporarily cause one keycode to be used for two commands. Also, more
+	// than one key can be held down at once.
 	for(const auto &it : keycodeForCommand)
 		if(keyDown[SDL_GetScancodeFromKey(it.second)])
 			*this |= it.first;
@@ -86,11 +109,12 @@ void Command::ReadKeyboard()
 
 
 
-// Load or save the keyboard preferences.
+// Load the keyboard preferences.
 void Command::LoadSettings(const string &path)
 {
 	DataFile file(path);
 	
+	// Create a map of command names to Command objects in the enumeration above.
 	map<string, Command> commands;
 	for(const auto &it : description)
 		commands[it.second] = it.first;
@@ -109,6 +133,7 @@ void Command::LoadSettings(const string &path)
 		}
 	}
 	
+	// Regenerate the lookup tables.
 	commandForKeycode.clear();
 	keycodeCount.clear();
 	for(const auto &it : keycodeForCommand)
@@ -120,6 +145,7 @@ void Command::LoadSettings(const string &path)
 
 
 
+// Save the keyboard preferences.
 void Command::SaveSettings(const string &path)
 {
 	DataWriter out(path);
@@ -134,6 +160,7 @@ void Command::SaveSettings(const string &path)
 
 
 
+// Set the key that is mapped to the given command.
 void Command::SetKey(Command command, int keycode)
 {
 	// Always reset *all* the mappings when one is set. That way, if two commands
@@ -153,26 +180,29 @@ void Command::SetKey(Command command, int keycode)
 
 
 
-// Get the description or keycode name for this command. If this command is
-// a combination of more than one command, an empty string is returned.
+// Get the description of this command. If this command is a combination of more
+// than one command, an empty string is returned.
 const string &Command::Description() const
 {
-	static const string empty = "";
+	static const string empty;
 	auto it = description.find(*this);
 	return (it == description.end() ? empty : it->second);
 }
 
 
 
+// Get the name of the key that is mapped to this command. If this command is
+// a combination of more than one command, an empty string is returned.
 const string &Command::KeyName() const
 {
-	static const string empty = "";
+	static const string empty;
 	auto it = keyName.find(*this);
 	return (it == keyName.end() ? empty : it->second);
 }
 
 
 
+// Check whether this is the only command mapped to the key it is mapped to.
 bool Command::HasConflict() const
 {
 	auto it = keycodeForCommand.find(*this);
@@ -185,7 +215,7 @@ bool Command::HasConflict() const
 
 
 
-// Clear all commands (i.e. set to the default state).
+// Reset this to an empty command.
 void Command::Clear()
 {
 	*this = Command();
@@ -220,12 +250,12 @@ bool Command::Has(Command command) const
 // Get the commands that are set in this and not in the given command.
 Command Command::AndNot(Command command) const
 {
-	return (state & ~command.state);
+	return Command(state & ~command.state);
 }
 
 
 
-// Get or set the turn amount.
+// Set the turn direction and amount to a value between -1 and 1.
 void Command::SetTurn(double amount)
 {
 	turn = max(-1., min(1., amount));
@@ -233,6 +263,7 @@ void Command::SetTurn(double amount)
 
 
 
+// Get the turn amount.
 double Command::Turn() const
 {
 	return turn;
@@ -240,16 +271,23 @@ double Command::Turn() const
 
 
 
-// Get or set the fire commands.
+// Check if this command includes a command to fire the given weapon.
 bool Command::HasFire(int index) const
 {
+	if(index < 0 || index >= 32)
+		return false;
+	
 	return state & ((1ull << 32) << index);
 }
 
 
 
+// Add to this set of commands a command to fire the given weapon.
 void Command::SetFire(int index)
 {
+	if(index < 0 || index >= 32)
+		return;
+	
 	state |= ((1ull << 32) << index);
 }
 
@@ -263,6 +301,28 @@ bool Command::IsFiring() const
 
 
 
+// Set the turn rate of the turret with the given weapon index. A value of
+// -1 or 1 means to turn at the full speed the turret is capable of.
+double Command::Aim(int index) const
+{
+	if(index < 0 || index >= 32)
+		return 0;
+	
+	return aim[index] / 127.;
+}
+
+
+
+void Command::SetAim(int index, double amount)
+{
+	if(index < 0 || index >= 32)
+		return;
+	
+	aim[index] = round(127. * max(-1., min(1., amount)));
+}
+
+
+
 // Check if any bits are set in this command (including a nonzero turn).
 Command::operator bool() const
 {
@@ -271,6 +331,7 @@ Command::operator bool() const
 
 
 
+// Check whether this command is entirely empty.
 bool Command::operator!() const
 {
 	return !state && !turn;
@@ -278,7 +339,7 @@ bool Command::operator!() const
 
 
 
-// For sorting commands:
+// For sorting commands (e.g. so a command can be the key in a map):
 bool Command::operator<(const Command &command) const
 {
 	return (state < command.state);
@@ -296,6 +357,8 @@ Command Command::operator|(const Command &command) const
 
 
 
+// Combine everything in the given command with this command. If the given
+// command has a nonzero turn set, it overrides this command's turn value.
 Command &Command::operator|=(const Command &command)
 {
 	state |= command.state;
@@ -306,6 +369,7 @@ Command &Command::operator|=(const Command &command)
 
 
 
+// Private constructor.
 Command::Command(uint64_t state)
 	: state(state)
 {
@@ -313,6 +377,8 @@ Command::Command(uint64_t state)
 
 
 
+// Private constructor that also stores the given description in the lookup
+// table. (This is used for the enumeration at the top of this file.)
 Command::Command(uint64_t state, const string &text)
 	: state(state)
 {

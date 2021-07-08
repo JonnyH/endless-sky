@@ -30,8 +30,8 @@ class Sprite;
 // to see which systems it is available in.
 class MapOutfitterPanel : public MapSalesPanel {
 public:
-	MapOutfitterPanel(PlayerInfo &player);
-	MapOutfitterPanel(const MapPanel &panel);
+	explicit MapOutfitterPanel(PlayerInfo &player);
+	explicit MapOutfitterPanel(const MapPanel &panel, bool onlyHere = false);
 	
 	
 protected:
@@ -39,14 +39,14 @@ protected:
 	virtual const Sprite *CompareSprite() const override;
 	virtual const ItemInfoDisplay &SelectedInfo() const override;
 	virtual const ItemInfoDisplay &CompareInfo() const override;
+	virtual const std::string &KeyLabel(int index) const override;
 
 	virtual void Select(int index) override;
 	virtual void Compare(int index) override;
-	virtual bool HasAny(const Planet *planet) const override;
-	virtual bool HasThis(const Planet *planet) const override;
+	virtual double SystemValue(const System *system) const override;
 	virtual int FindItem(const std::string &text) const override;
 	
-	virtual void DrawItems() const override;
+	virtual void DrawItems() override;
 	
 	
 private:
@@ -55,7 +55,7 @@ private:
 	
 private:
 	std::map<std::string, std::vector<const Outfit *>> catalog;
-	mutable std::vector<const Outfit *> list;
+	std::vector<const Outfit *> list;
 	
 	const Outfit *selected = nullptr;
 	const Outfit *compare = nullptr;
